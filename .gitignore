@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Xcode build artifacts
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager / xcodebuild output
+.swiftpm/
+.build/
+Package.resolved
+*.xcodeproj/xcuserdata
+*.xcworkspace/xcuserdata
+
+# Tooling caches (per-machine — never commit)
+.claude/
+
+# Supabase credentials — never commit
+# (template lives at Sources/Resources/SupabaseConfig.example.plist)
+Sources/Resources/SupabaseConfig.plist
