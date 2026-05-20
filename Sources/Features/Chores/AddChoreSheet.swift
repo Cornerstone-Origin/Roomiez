@@ -1,9 +1,17 @@
 import SwiftUI
 
 struct AddChoreSheet: View {
+    enum Mode: String, CaseIterable, Identifiable {
+        case single, group
+        var id: String { rawValue }
+        var label: String { self == .single ? "Single" : "Group" }
+    }
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
 
+    // Mode + shared single-chore state
+    @State private var mode: Mode = .single
     @State private var title: String
     @State private var note: String
     @State private var icon: String
@@ -16,11 +24,26 @@ struct AddChoreSheet: View {
     @State private var dueDate: Date
     @State private var hasDueDate: Bool
 
-    private let initial: Chore?
-    private let onSave: (Chore) -> Void
+    // Group-mode state — only relevant when `mode == .group`
+    @State private var groupDrafts: [GroupChoreDraft] = [GroupChoreDraft()]
+    @State private var groupRecurrence: ChoreRecurrence = .weekly
+    @State private var groupRotation: [UUID] = []
+    @State private var groupRandomOrder: Bool = false
+    @State private var groupStartDate: Date = .now
+    @State private var groupHasStartDate: Bool = true
 
-    init(initial: Chore?, onSave: @escaping (Chore) -> Void) {
+    private let initial: Chore?
+    /// Other chores in the same group as `initial`. Empty if the chore
+    /// is standalone or this is a new-chore sheet. Used to surface and
+    /// edit group-level settings.
+    private let peers: [Chore]
+    private let onSave: ([Chore]) -> Void
+
+    init(initial: Chore?,
+         peers: [Chore] = [],
+         onSave: @escaping ([Chore]) -> Void) {
         self.initial = initial
+        self.peers = peers
         self.onSave = onSave
         _title          = State(initialValue: initial?.title ?? "")
         _note           = State(initialValue: initial?.note ?? "")
@@ -42,16 +65,14 @@ struct AddChoreSheet: View {
                 Theme.Palette.background.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                        titleCard
-                        presetsRow
-                        iconPicker
-                        prioritySection
-                        recurrenceSection
-                        assigneeSection
-                        rotationOrderSection
-                        difficultySection
-                        dueDateSection
-                        notesSection
+                        if initial == nil {
+                            modePicker
+                        }
+                        if mode == .single {
+                            singleChorePage
+                        } else {
+                            groupChorePage
+                        }
                     }
                     .padding(.horizontal, Theme.Spacing.md)
                     .padding(.vertical, Theme.Spacing.lg)
@@ -59,28 +80,180 @@ struct AddChoreSheet: View {
             }
             .onChange(of: icon) { _, newIcon in
                 // Picking a category — snap difficulty + XP bar to
-                // that category's typical effort level. User can
-                // fine-tune via the slider or a difficulty chip after.
+                // that category's typical effort level.
                 applyDifficulty(ChoreIcon.defaultDifficulty(for: newIcon))
             }
             .onChange(of: title) { _, newTitle in
-                // Picking a specific preset chip — override with the
-                // preset's known effort. Free-text titles are ignored.
+                // Specific preset chip → snap to that preset's effort.
                 if let preset = ChoreIcon.presetDifficulty(for: newTitle) {
                     applyDifficulty(preset)
                 }
             }
-            .navigationTitle(initial == nil ? "New chore" : "Edit chore")
+            .onAppear {
+                if groupRotation.isEmpty {
+                    groupRotation = appState.members.map(\.id)
+                }
+            }
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(initial == nil ? "Add" : "Save", action: save)
-                        .font(.cozy(15, weight: .bold))
-                        .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button(confirmTitle) {
+                        mode == .single ? save() : saveGroup()
+                    }
+                    .font(.cozy(15, weight: .bold))
+                    .disabled(saveDisabled)
                 }
+            }
+        }
+    }
+
+    private var navigationTitle: String {
+        if initial != nil { return "Edit chore" }
+        return mode == .single ? "New chore" : "Group chores"
+    }
+
+    private var confirmTitle: String {
+        if initial != nil { return "Save" }
+        if mode == .group {
+            let n = groupDrafts.filter {
+                !$0.title.trimmingCharacters(in: .whitespaces).isEmpty
+            }.count
+            return n > 1 ? "Add \(n)" : "Add"
+        }
+        return "Add"
+    }
+
+    private var saveDisabled: Bool {
+        if mode == .single {
+            return title.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        let valid = groupDrafts.contains {
+            !$0.title.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return !valid || groupRotation.isEmpty
+    }
+
+    // MARK: - Mode picker
+
+    private var modePicker: some View {
+        Picker("", selection: $mode) {
+            ForEach(Mode.allCases) { m in
+                Text(m.label).tag(m)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    // MARK: - Single-chore page (existing content)
+
+    private var singleChorePage: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            if !peers.isEmpty {
+                groupMembershipBanner
+            }
+            titleCard
+            presetsRow
+            iconPicker
+            prioritySection
+            recurrenceSection
+            assigneeSection
+            rotationOrderSection
+            difficultySection
+            dueDateSection
+            notesSection
+            if !peers.isEmpty {
+                peersSection
+            }
+        }
+    }
+
+    /// Banner shown at the top of the single edit page when the chore
+    /// belongs to a group. Clarifies that some fields are shared.
+    private var groupMembershipBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Palette.azure)
+                .frame(width: 38, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                     style: .continuous)
+                        .fill(Theme.Palette.azure.opacity(0.12))
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Part of a \(peers.count + 1)-chore group")
+                    .font(.cozy(15, weight: .bold))
+                    .foregroundStyle(Theme.Palette.text)
+                Text("Changes to rotation, repeats, and due date apply to every chore in the group.")
+                    .font(.cozyTag)
+                    .foregroundStyle(Theme.Palette.textSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                .fill(Theme.Palette.azure.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                .stroke(Theme.Palette.azure.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    /// Compact list of the chore's peers — read-only preview so the
+    /// user can see what else is in the group.
+    private var peersSection: some View {
+        SettingsRow(title: "Other chores in this group") {
+            VStack(spacing: 8) {
+                ForEach(peers) { peer in
+                    HStack(spacing: 10) {
+                        Image(systemName: peer.icon)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(peer.iconTint)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(peer.iconTint.opacity(0.14))
+                            )
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(peer.title)
+                                .font(.cozy(14, weight: .semibold))
+                                .foregroundStyle(Theme.Palette.text)
+                                .lineLimit(1)
+                            if let assignee = appState.member(id: peer.assigneeId) {
+                                Text("Starts with \(assignee.displayName)")
+                                    .font(.cozyTag)
+                                    .foregroundStyle(Theme.Palette.textSoft)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer()
+                        Text("+\(peer.xpReward) XP")
+                            .font(.cozyTag)
+                            .foregroundStyle(Theme.Palette.textSoft)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                         style: .continuous)
+                            .fill(Theme.Palette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                         style: .continuous)
+                            .stroke(Theme.Palette.divider, lineWidth: 1)
+                    )
+                }
+                Text("Edit each of these individually to change its title, icon, or difficulty.")
+                    .font(.cozyTag)
+                    .foregroundStyle(Theme.Palette.textSoft)
+                    .padding(.top, 4)
             }
         }
     }
@@ -468,11 +641,439 @@ struct AddChoreSheet: View {
             dueDate: hasDueDate ? dueDate : nil,
             completedAt: initial?.completedAt,
             streak: initial?.streak ?? 0,
-            createdAt: initial?.createdAt ?? .now
+            createdAt: initial?.createdAt ?? .now,
+            lastPenaltyAt: initial?.lastPenaltyAt,
+            groupId: initial?.groupId
         )
-        onSave(chore)
+
+        // If this chore is part of a group, propagate the shared
+        // settings (rotation / recurrence / due date) to every peer.
+        var updates: [Chore] = [chore]
+        if !peers.isEmpty {
+            for var peer in peers {
+                peer.rotationOrder = storedOrder
+                peer.recurrence    = recurrence
+                peer.dueDate       = hasDueDate ? dueDate : nil
+                updates.append(peer)
+            }
+        }
+        onSave(updates)
         dismiss()
     }
+
+    // MARK: - Group chore page
+
+    private var groupChorePage: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            groupBlurbCard
+            groupChoresSection
+            groupRotationSection
+            groupRecurrenceSection
+            groupStartDateSection
+        }
+    }
+
+    /// Friendly explainer at the top of the group page.
+    private var groupBlurbCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Palette.azure)
+                .frame(width: 38, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                     style: .continuous)
+                        .fill(Theme.Palette.azure.opacity(0.12))
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Rotate together")
+                    .font(.cozy(15, weight: .bold))
+                    .foregroundStyle(Theme.Palette.text)
+                Text("Add a batch of chores. Each cycles through your rotation, staggered so different people start with different chores.")
+                    .font(.cozyTag)
+                    .foregroundStyle(Theme.Palette.textSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                .fill(Theme.Palette.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                .stroke(Theme.Palette.divider, lineWidth: 1)
+        )
+    }
+
+    private var groupRotationSection: some View {
+        SettingsRow(title: "Rotation") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Tap a roommate to add or remove them from the rotation.")
+                    .font(.cozyTag)
+                    .foregroundStyle(Theme.Palette.textSoft)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(appState.members) { user in
+                            memberToggleChip(user)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 2)
+                }
+                if groupRotation.isEmpty {
+                    Text("Add at least one roommate to the rotation.")
+                        .font(.cozyTag)
+                        .foregroundStyle(Theme.Palette.rose)
+                } else {
+                    Toggle(isOn: $groupRandomOrder.animation(Theme.Motion.spring)) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "shuffle")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Random order")
+                                .font(.cozy(13, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.Palette.text)
+                    }
+                    .tint(Theme.Palette.azure)
+
+                    if groupRandomOrder {
+                        Text("Roommates will be shuffled into a random sequence when you add the chores.")
+                            .font(.cozyTag)
+                            .foregroundStyle(Theme.Palette.textSoft)
+                    } else {
+                        rotationOrderPreview
+                    }
+                }
+            }
+        }
+    }
+
+    /// Numbered list of rotation members in their current order, with
+    /// up/down reorder controls. Only visible when `groupRandomOrder`
+    /// is off (manual order).
+    private var rotationOrderPreview: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("ORDER")
+                .font(.cozyTag)
+                .foregroundStyle(Theme.Palette.textSoft)
+            ForEach(Array(groupRotation.enumerated()), id: \.element) { (idx, id) in
+                if let user = appState.member(id: id) {
+                    rotationOrderRow(index: idx, user: user)
+                }
+            }
+        }
+    }
+
+    private func rotationOrderRow(index: Int, user: RoomieUser) -> some View {
+        HStack(spacing: 10) {
+            Text("\(index + 1)")
+                .font(.cozy(12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(user.accent))
+            AvatarView(user: user, size: 28, showsRing: false)
+            Text(user.id == appState.currentUser.id ? "You" : user.displayName)
+                .font(.cozy(14, weight: .semibold))
+                .foregroundStyle(Theme.Palette.text)
+            Spacer()
+            rotationReorderArrow(direction: .up, index: index)
+            rotationReorderArrow(direction: .down, index: index)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private enum RotationReorderDirection { case up, down }
+
+    private func rotationReorderArrow(direction: RotationReorderDirection,
+                                      index: Int) -> some View {
+        let isDisabled: Bool = {
+            switch direction {
+            case .up:   return index == 0
+            case .down: return index == groupRotation.count - 1
+            }
+        }()
+        let symbol = direction == .up ? "chevron.up" : "chevron.down"
+        return Button {
+            Haptics.soft()
+            withAnimation(Theme.Motion.snappy) {
+                switch direction {
+                case .up:   groupRotation.swapAt(index, index - 1)
+                case .down: groupRotation.swapAt(index, index + 1)
+                }
+            }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(isDisabled
+                                 ? Theme.Palette.textSoft.opacity(0.35)
+                                 : Theme.Palette.text)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Theme.Palette.surface))
+                .overlay(Circle().stroke(Theme.Palette.divider, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+    }
+
+    private func memberToggleChip(_ user: RoomieUser) -> some View {
+        let isIn = groupRotation.contains(user.id)
+        return Button {
+            Haptics.selection()
+            withAnimation(Theme.Motion.spring) {
+                if isIn {
+                    groupRotation.removeAll { $0 == user.id }
+                } else {
+                    groupRotation.append(user.id)
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                AvatarView(user: user, size: 44, showsRing: isIn)
+                Text(user.id == appState.currentUser.id ? "You" : user.displayName)
+                    .font(.cozyTag)
+                    .foregroundStyle(Theme.Palette.text)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                 style: .continuous)
+                    .fill(isIn
+                          ? user.accent.opacity(0.18)
+                          : Theme.Palette.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                 style: .continuous)
+                    .stroke(isIn
+                            ? user.accent.opacity(0.55)
+                            : Theme.Palette.divider,
+                            lineWidth: 1)
+            )
+            .opacity(isIn ? 1 : 0.65)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var groupRecurrenceSection: some View {
+        SettingsRow(title: "Repeats") {
+            Picker("", selection: $groupRecurrence) {
+                ForEach(ChoreRecurrence.allCases) { r in
+                    Text(r.label).tag(r)
+                }
+            }
+            .tint(Theme.Palette.text)
+        }
+    }
+
+    private var groupStartDateSection: some View {
+        SettingsRow(title: "Start") {
+            VStack(alignment: .leading) {
+                Toggle("Set a due date",
+                       isOn: $groupHasStartDate.animation(Theme.Motion.spring))
+                    .tint(Theme.Palette.teal)
+                if groupHasStartDate {
+                    DatePicker("", selection: $groupStartDate,
+                               displayedComponents: [.date])
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                }
+            }
+        }
+    }
+
+    private var groupChoresSection: some View {
+        SettingsRow(title: "Chores") {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach($groupDrafts) { $draft in
+                    groupDraftRow($draft)
+                }
+                Button {
+                    Haptics.soft()
+                    withAnimation(Theme.Motion.spring) {
+                        groupDrafts.append(GroupChoreDraft())
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add another chore")
+                    }
+                    .font(.cozy(13, weight: .bold))
+                    .foregroundStyle(Theme.Palette.azure)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(Theme.Palette.azure.opacity(0.12)))
+                    .overlay(Capsule().stroke(Theme.Palette.azure.opacity(0.35),
+                                              lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func groupDraftRow(_ draft: Binding<GroupChoreDraft>) -> some View {
+        let tint = ChoreIcon.tint(for: draft.wrappedValue.icon)
+        return VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                // Icon picker (Menu)
+                Menu {
+                    ForEach(ChoreIcon.options, id: \.symbol) { opt in
+                        Button {
+                            draft.wrappedValue.icon = opt.symbol
+                            draft.wrappedValue.difficulty =
+                                ChoreIcon.defaultDifficulty(for: opt.symbol)
+                        } label: {
+                            Label(opt.label, systemImage: opt.symbol)
+                        }
+                    }
+                } label: {
+                    Image(systemName: draft.wrappedValue.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 38, height: 38)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                             style: .continuous)
+                                .fill(tint.opacity(0.12))
+                        )
+                }
+
+                TextField("Chore name", text: draft.title)
+                    .font(.cozyBody)
+                    .padding(.horizontal, 12).padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                         style: .continuous)
+                            .fill(Theme.Palette.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                         style: .continuous)
+                            .stroke(Theme.Palette.divider, lineWidth: 1)
+                    )
+                    .onChange(of: draft.wrappedValue.title) { _, newTitle in
+                        if let preset = ChoreIcon.presetDifficulty(for: newTitle) {
+                            draft.wrappedValue.difficulty = preset
+                        }
+                    }
+
+                Text("+\(draft.wrappedValue.difficulty.xp)")
+                    .font(.cozy(12, weight: .bold))
+                    .foregroundStyle(draft.wrappedValue.difficulty.tint)
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(Capsule().fill(
+                        draft.wrappedValue.difficulty.tint.opacity(0.14)))
+                    .overlay(Capsule().stroke(
+                        draft.wrappedValue.difficulty.tint.opacity(0.45),
+                        lineWidth: 1))
+
+                if groupDrafts.count > 1 {
+                    Button {
+                        Haptics.soft()
+                        withAnimation(Theme.Motion.snappy) {
+                            groupDrafts.removeAll { $0.id == draft.wrappedValue.id }
+                        }
+                    } label: {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.Palette.rose)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Theme.Palette.rose.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            // Preset chips for that icon
+            let presets = ChoreIcon.presets(for: draft.wrappedValue.icon)
+            if !presets.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(presets, id: \.self) { preset in
+                            Button {
+                                Haptics.soft()
+                                draft.wrappedValue.title = preset
+                                if let d = ChoreIcon.presetDifficulty(for: preset) {
+                                    draft.wrappedValue.difficulty = d
+                                }
+                            } label: {
+                                Text(preset)
+                                    .font(.cozy(11, weight: .semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Capsule().fill(tint.opacity(0.14)))
+                                    .overlay(Capsule().stroke(tint.opacity(0.35),
+                                                              lineWidth: 1))
+                                    .foregroundStyle(tint)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                .fill(Theme.Palette.subtle)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                .stroke(Theme.Palette.divider, lineWidth: 1)
+        )
+    }
+
+    private func saveGroup() {
+        // Filter blank rows
+        let valid = groupDrafts.filter {
+            !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        guard !valid.isEmpty, !groupRotation.isEmpty else { return }
+
+        // Apply the user's chosen order: random shuffle, or use the
+        // manual sequence as-is. The shuffled order is then shared by
+        // every chore in the group so rotations stay consistent.
+        let order = groupRandomOrder ? groupRotation.shuffled() : groupRotation
+        // One shared `groupId` so peers can find each other in the
+        // edit sheet later.
+        let sharedGroupId = UUID()
+
+        // Stagger the initial assignee so different roommates start with
+        // different chores in the cycle.
+        let chores: [Chore] = valid.enumerated().map { (idx, draft) in
+            let firstAssignee = order[idx % order.count]
+            return Chore(
+                id: UUID(),
+                householdId: appState.household.id,
+                title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                note: nil,
+                icon: draft.icon,
+                status: .todo,
+                priority: .normal,
+                recurrence: groupRecurrence,
+                assigneeId: firstAssignee,
+                rotationOrder: order,
+                xpReward: draft.difficulty.xp,
+                difficulty: draft.difficulty,
+                dueDate: groupHasStartDate ? groupStartDate : nil,
+                completedAt: nil,
+                streak: 0,
+                createdAt: .now,
+                lastPenaltyAt: nil,
+                groupId: sharedGroupId
+            )
+        }
+        onSave(chores)
+        dismiss()
+    }
+}
+
+/// In-memory draft used by the group-chore page. Becomes a `Chore` on save.
+struct GroupChoreDraft: Identifiable, Equatable {
+    let id = UUID()
+    var icon: String = ChoreIcon.options[0].symbol
+    var title: String = ""
+    var difficulty: ChoreDifficulty = .normal
 }
 
 /// Small generic row used in setting sheets across the app.

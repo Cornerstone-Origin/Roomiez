@@ -42,19 +42,19 @@ struct QuickActionTile: View {
     }
 }
 
-/// Streak chip — outlined pill, no fill.
+/// Streak chip — orange outline with a small orange flame.
 struct StreakChip: View {
     var streak: Int
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.Palette.coral)
+                .foregroundStyle(Theme.Palette.orange)
             Text("\(streak)-day streak")
                 .font(.cozy(13, weight: .bold))
                 .foregroundStyle(Theme.Palette.text)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
-        .overlay(Capsule().stroke(Theme.Palette.divider, lineWidth: 1))
+        .overlay(Capsule().stroke(Theme.Palette.orange, lineWidth: 1.2))
     }
 }

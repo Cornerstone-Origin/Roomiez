@@ -91,7 +91,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.text)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(Theme.Palette.divider, lineWidth: 1))
+                    .overlay(Circle().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
             }
             .buttonStyle(.plain)
             Button {
@@ -103,7 +103,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.text)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(Theme.Palette.divider, lineWidth: 1))
+                    .overlay(Circle().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
             }
             .buttonStyle(.plain)
         }
@@ -213,7 +213,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
         .opacity(isCompleting ? 0.4 : 1)
         .scaleEffect(isCompleting ? 0.94 : 1)
@@ -265,7 +265,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
     }
 
@@ -362,7 +362,7 @@ struct DashboardView: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.white.opacity(0.6))
-                    .overlay(Capsule().stroke(Theme.Palette.divider, lineWidth: 1))
+                    .overlay(Capsule().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
                 Capsule()
                     .fill(appState.household.tier.tint)
                     .frame(width: max(6, proxy.size.width * progress))
@@ -538,7 +538,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
     }
 
@@ -625,7 +625,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
     }
 
@@ -684,7 +684,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
     }
 
@@ -748,7 +748,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
+                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
     }
 

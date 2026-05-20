@@ -7,7 +7,6 @@ struct GroceryListView: View {
     @State private var showingHistory = false
     @State private var editing: GroceryItem? = nil
     @State private var hideChecked = false
-    @State private var categoryFilter: GroceryCategory? = nil
     @State private var quickAddCategory: GroceryCategory = .produce
     @FocusState private var inputFocused: Bool
 
@@ -23,25 +22,37 @@ struct GroceryListView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     header
                     smartInputBar
-                    if !presentCategories.isEmpty {
-                        categoryFilterRow
-                    }
 
                     if vm.items.isEmpty {
                         EmptyStateView(
-                            systemImage: "cart.fill",
+                            systemImage: "basket.fill",
                             tint: Theme.Palette.ochre,
-                            title: "Your list is empty",
-                            subtitle: "Type above to quick-add, or use + for full details.",
+                            title: "No baskets yet",
+                            subtitle: "Type above to quick-add an item — it'll land in a basket.",
                             actionTitle: "Add item"
                         ) { showingAdd = true }
                         .padding(.top, 40)
-                    } else if displayGrouped.isEmpty {
+                    } else if basketsToShow.isEmpty {
                         emptyFilterState
                     } else {
-                        ForEach(displayGrouped, id: \.0) { (category, list) in
-                            categorySection(category: category, items: list)
+                        LazyVGrid(columns: basketColumns, spacing: 14) {
+                            ForEach(basketsToShow, id: \.0) { (category, items) in
+                                GroceryBasketCard(
+                                    category: category,
+                                    items: items,
+                                    onToggle: { item in
+                                        Task { await vm.toggle(item) }
+                                    },
+                                    onTapItem: { item in editing = item },
+                                    onRemove: { item in
+                                        Task { await vm.remove(item) }
+                                    }
+                                )
+                                .transition(.scale.combined(with: .opacity))
+                            }
                         }
+                        .animation(Theme.Motion.spring, value: vm.items)
+
                         if vm.items.contains(where: \.isChecked) {
                             clearCheckedButton
                         }
@@ -234,121 +245,12 @@ struct GroceryListView: View {
         inputFocused = false
     }
 
-    // MARK: - Category filter chips
+    // MARK: - Basket grid layout
 
-    private var categoryFilterRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                filterChip(title: "All",
-                           icon: "tray.full.fill",
-                           tint: Theme.Palette.text,
-                           count: vm.totalRemaining,
-                           isSelected: categoryFilter == nil) {
-                    categoryFilter = nil
-                }
-                ForEach(presentCategories) { cat in
-                    filterChip(title: cat.title,
-                               icon: cat.icon,
-                               tint: cat.tint,
-                               count: remainingCount(in: cat),
-                               isSelected: categoryFilter == cat) {
-                        categoryFilter = (categoryFilter == cat) ? nil : cat
-                    }
-                }
-            }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 2)
-        }
-    }
-
-    private func filterChip(title: String, icon: String, tint: Color,
-                            count: Int, isSelected: Bool,
-                            onTap: @escaping () -> Void) -> some View {
-        Button(action: { Haptics.selection(); onTap() }) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
-                Text(title)
-                    .font(.cozy(12, weight: .semibold))
-                    .lineLimit(1)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.cozy(10, weight: .bold))
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(
-                            isSelected
-                                ? Color.white.opacity(0.30)
-                                : tint.opacity(0.20)
-                        ))
-                }
-            }
-            .foregroundStyle(isSelected ? .white : tint)
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(
-                Capsule().fill(isSelected ? tint : Theme.Palette.surface)
-            )
-            .overlay(
-                Capsule().stroke(tint.opacity(isSelected ? 0 : 0.35),
-                                 lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Categories / rows
-
-    private func categorySection(category: GroceryCategory,
-                                 items: [GroceryItem]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(category.tint)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(category.tint.opacity(0.18))
-                    )
-                Text(category.title)
-                    .font(.cozyHeadline)
-                    .foregroundStyle(Theme.Palette.text)
-                Spacer()
-                Text("\(items.count)")
-                    .font(.cozyTag)
-                    .padding(.horizontal, 8).padding(.vertical, 2)
-                    .background(Capsule().fill(category.tint.opacity(0.20)))
-                    .foregroundStyle(category.tint)
-            }
-            VStack(spacing: 8) {
-                ForEach(items) { item in
-                    GroceryItemRow(
-                        item: item,
-                        addedBy: appState.member(id: item.addedById),
-                        onToggle: { Task { await vm.toggle(item) } },
-                        onTap: { editing = item }
-                    )
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            Task { await vm.remove(item) }
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
-                }
-            }
-            .animation(Theme.Motion.spring, value: items)
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous)
-                .fill(category.tint.opacity(0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous)
-                .stroke(category.tint.opacity(0.30), lineWidth: 1)
-        )
-    }
+    private let basketColumns: [GridItem] = [
+        GridItem(.flexible(), spacing: 14, alignment: .top),
+        GridItem(.flexible(), spacing: 14, alignment: .top)
+    ]
 
     // MARK: - Bottom button / empty filter
 
@@ -373,13 +275,13 @@ struct GroceryListView: View {
 
     private var emptyFilterState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
+            Image(systemName: "eye.slash.fill")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(Theme.Palette.textSoft.opacity(0.6))
-            Text("Nothing matches")
+            Text("Every basket is empty")
                 .font(.cozyHeadline)
                 .foregroundStyle(Theme.Palette.text)
-            Text("Try a different filter, or clear the search box.")
+            Text("Toggle \"hide checked\" off or clear the search box to see the rest.")
                 .font(.cozyCaption)
                 .foregroundStyle(Theme.Palette.textSoft)
                 .multilineTextAlignment(.center)
@@ -390,29 +292,16 @@ struct GroceryListView: View {
 
     // MARK: - Derived data
 
-    /// Categories that currently contain at least one item.
-    private var presentCategories: [GroceryCategory] {
-        let used = Set(vm.items.map(\.category))
-        return GroceryCategory.allCases.filter { used.contains($0) }
-    }
-
-    private func remainingCount(in cat: GroceryCategory) -> Int {
-        vm.items.filter { $0.category == cat && !$0.isChecked }.count
-    }
-
-    /// The grouped list after the active category filter and the
-    /// "hide checked" toggle are applied.
-    private var displayGrouped: [(GroceryCategory, [GroceryItem])] {
-        var groups = vm.grouped
-        if let cat = categoryFilter {
-            groups = groups.filter { $0.0 == cat }
+    /// Baskets to render in the grid: one per category that currently
+    /// has items. Applies the "hide checked" toggle and respects the
+    /// smart-input search filter (which the view model already folded
+    /// into `vm.grouped`).
+    private var basketsToShow: [(GroceryCategory, [GroceryItem])] {
+        vm.grouped.compactMap { (cat, items) in
+            let visible = hideChecked
+                ? items.filter { !$0.isChecked }
+                : items
+            return visible.isEmpty ? nil : (cat, visible)
         }
-        if hideChecked {
-            groups = groups.compactMap { (cat, items) in
-                let remaining = items.filter { !$0.isChecked }
-                return remaining.isEmpty ? nil : (cat, remaining)
-            }
-        }
-        return groups
     }
 }

@@ -33,6 +33,16 @@ enum Theme {
         static let azure       = Color(hex: "5D9CEC")   // Blue Jeans
         static let grass       = Color(hex: "A0D468")   // Grass green
 
+        // Premium chore-page palette — bright orange + sky blue.
+        // Used by the chore-board accents (calendar selection, status
+        // segment, filter button, FAB) and the active bottom-nav tab.
+        static let orange      = Color(hex: "FF7A00")   // primary
+        static let orangeMid   = Color(hex: "FF8F1F")
+        static let orangeSoft  = Color(hex: "FFB15E")
+        static let skyBlue     = Color(hex: "1DA1FF")   // secondary
+        static let skyBlueMid  = Color(hex: "5BC2FF")
+        static let skyBlueSoft = Color(hex: "B8E7FF")
+
         // Companions.
         static let sand        = Color(hex: "FFCE54")   // alias to sunflower
         static let sky         = Color(hex: "4FC1E9")   // alias to aqua
@@ -83,6 +93,28 @@ enum Theme {
         static let logo = LinearGradient(
             colors: [Palette.azure, Palette.coral],
             startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+
+        /// Frosted-glass rim — white reflection at the top fading to a
+        /// soft dark shadow at the bottom. Stroked at 1–1.5pt on white
+        /// surfaces to give them a chrome-bezel feel.
+        static let glassBorder = LinearGradient(
+            stops: [
+                .init(color: Color.white.opacity(0.95), location: 0.0),
+                .init(color: Color.black.opacity(0.20), location: 0.55),
+                .init(color: Color.black.opacity(0.55), location: 1.0)
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+
+        /// Premium chore-page sweep — bright orange → sky blue.
+        /// Drives the calendar selected day, the active status segment,
+        /// the filter button, the floating add button, and the active
+        /// bottom-nav tab indicator.
+        static let orangeSky = LinearGradient(
+            colors: [Palette.orange, Palette.skyBlue],
+            startPoint: .topLeading,
+            endPoint:   .bottomTrailing
         )
 
         /// Soft pastel peach → sky sweep — the app's primary accent for

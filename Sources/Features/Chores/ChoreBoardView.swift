@@ -37,20 +37,37 @@ struct ChoreBoardView: View {
             }
             .refreshable { await vm.load() }
 
-            FloatingAddButton { showingAdd = true }
-                .padding(.trailing, 20).padding(.bottom, FloatingButtonClearance.bottom)
+            FloatingAddButton(
+                action: { showingAdd = true },
+                gradient: LinearGradient(
+                    colors: [Theme.Palette.orange, Theme.Palette.orange],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
+            .padding(.trailing, 20).padding(.bottom, FloatingButtonClearance.bottom)
         }
         .task { await vm.load() }
         .sheet(isPresented: $showingAdd) {
-            AddChoreSheet(initial: nil) { chore in
-                Task { await vm.add(chore) }
+            AddChoreSheet(initial: nil) { chores in
+                Task {
+                    for chore in chores { await vm.add(chore) }
+                }
             }
             .presentationDetents([.large])
             .presentationCornerRadius(28)
         }
         .sheet(item: $editing) { chore in
-            AddChoreSheet(initial: chore) { updated in
-                Task { await vm.update(updated) }
+            AddChoreSheet(
+                initial: chore,
+                peers: vm.chores.filter {
+                    chore.groupId != nil
+                        && $0.groupId == chore.groupId
+                        && $0.id != chore.id
+                }
+            ) { updates in
+                Task {
+                    for u in updates { await vm.update(u) }
+                }
             }
             .presentationDetents([.large])
             .presentationCornerRadius(28)
@@ -102,7 +119,7 @@ struct ChoreBoardView: View {
             Capsule().fill(Theme.Palette.surface)
         )
         .overlay(
-            Capsule().stroke(Theme.Palette.divider, lineWidth: 1)
+            Capsule().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
         )
         .gesture(
             DragGesture(minimumDistance: 30)
@@ -140,25 +157,25 @@ struct ChoreBoardView: View {
                 if count > 0 {
                     Text("\(count)")
                         .font(.cozy(11, weight: .bold))
-                        .foregroundStyle(isSelected ? .white : Theme.Palette.textSoft)
-                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .foregroundStyle(isSelected ? .white : Theme.Palette.skyBlue)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(
                             Capsule().fill(
                                 isSelected
-                                    ? Color.white.opacity(0.22)
-                                    : Theme.Palette.subtle
+                                    ? Color.white.opacity(0.30)
+                                    : Theme.Palette.skyBlue.opacity(0.18)
                             )
                         )
                 }
             }
-            .foregroundStyle(isSelected ? .white : Theme.Palette.text.opacity(0.7))
+            .foregroundStyle(isSelected ? .white : Theme.Palette.skyBlue)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(
                 ZStack {
                     if isSelected {
                         Capsule()
-                            .fill(status.tint)
+                            .fill(Theme.Palette.orange)
                             .matchedGeometryEffect(id: "statusIndicator",
                                                    in: statusIndicator)
                     }
@@ -189,16 +206,16 @@ struct ChoreBoardView: View {
                 .background(
                     Circle().fill(
                         isFiltering
-                            ? Theme.Palette.azure
+                            ? Theme.Palette.orange
                             : Theme.Palette.surface
                     )
                 )
                 .overlay(
                     Circle().stroke(
                         isFiltering
-                            ? Color.clear
-                            : Theme.Palette.divider,
-                        lineWidth: 1
+                            ? AnyShapeStyle(Color.clear)
+                            : AnyShapeStyle(Theme.Gradients.glassBorder),
+                        lineWidth: 1.2
                     )
                 )
                 .floatingShadow()
@@ -316,6 +333,18 @@ struct ChoreBoardView: View {
 
 struct FloatingAddButton: View {
     var action: () -> Void
+    /// Override the default coral→azure gradient. Used by the Chore
+    /// page to swap in its fox-orange / macaw-blue palette.
+    var gradient: LinearGradient = Self.defaultGradient
+
+    static let defaultGradient: LinearGradient = LinearGradient(
+        colors: [
+            Theme.Palette.coral.opacity(0.62),
+            Theme.Palette.azure.opacity(0.62)
+        ],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
     var body: some View {
         Button {
             Haptics.medium()
@@ -328,16 +357,7 @@ struct FloatingAddButton: View {
                 .background(
                     ZStack {
                         Circle().fill(.ultraThinMaterial)
-                        Circle().fill(
-                            LinearGradient(
-                                colors: [
-                                    Theme.Palette.coral.opacity(0.62),
-                                    Theme.Palette.azure.opacity(0.62)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint:   .bottomTrailing
-                            )
-                        )
+                        Circle().fill(gradient)
                     }
                 )
                 .overlay(

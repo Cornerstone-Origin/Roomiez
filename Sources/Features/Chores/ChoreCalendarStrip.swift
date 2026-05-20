@@ -12,7 +12,10 @@ struct ChoreCalendarStrip: View {
 
     private let cal = Calendar.current
 
-    private var accentGradient: LinearGradient { Theme.Gradients.accent }
+    /// Primary orange for selected-day fill + active markers; sky blue
+    /// for secondary indicators (count dots, today outline).
+    private var primary:   Color { Theme.Palette.orange }
+    private var secondary: Color { Theme.Palette.skyBlue }
 
     private var days: [Date] {
         let today = Date.now.startOfDay
@@ -26,9 +29,12 @@ struct ChoreCalendarStrip: View {
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Palette.text)
-                    .frame(width: 22, height: 22)
-                    .overlay(Circle().stroke(Theme.Palette.divider, lineWidth: 1))
+                    .foregroundStyle(Theme.Palette.skyBlue)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Theme.Palette.skyBlue.opacity(0.14))
+                    )
                 Text(monthLabel)
                     .font(.cozyHeadline)
                     .foregroundStyle(Theme.Palette.text)
@@ -41,9 +47,9 @@ struct ChoreCalendarStrip: View {
                 } label: {
                     Text("Today")
                         .font(.cozy(12, weight: .bold))
-                        .foregroundStyle(Theme.Palette.text)
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .overlay(Capsule().stroke(Theme.Palette.divider, lineWidth: 1))
+                        .foregroundStyle(Theme.Palette.skyBlue)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Capsule().fill(Theme.Palette.skyBlue.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
             }
@@ -92,10 +98,8 @@ struct ChoreCalendarStrip: View {
                     .font(.cozy(10, weight: .bold))
                     .foregroundStyle(
                         isSelected
-                            ? AnyShapeStyle(Theme.Palette.text)
-                            : (isToday
-                                ? AnyShapeStyle(accentGradient)
-                                : AnyShapeStyle(Theme.Palette.textSoft))
+                            ? primary
+                            : (isToday ? primary : Theme.Palette.textSoft)
                     )
                 Text("\(cal.component(.day, from: date))")
                     .font(.cozy(20, weight: .bold))
@@ -107,7 +111,15 @@ struct ChoreCalendarStrip: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
                         isSelected
-                            ? AnyShapeStyle(accentGradient)
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [
+                                        primary.opacity(0.22),
+                                        primary.opacity(0.10)
+                                    ],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
                             : AnyShapeStyle(Theme.Palette.surface)
                     )
             )
@@ -115,11 +127,11 @@ struct ChoreCalendarStrip: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(
                         isSelected
-                            ? AnyShapeStyle(Color.clear)
+                            ? AnyShapeStyle(primary.opacity(0.55))
                             : (isToday
-                                ? AnyShapeStyle(accentGradient)
-                                : AnyShapeStyle(Theme.Palette.divider)),
-                        lineWidth: isToday && !isSelected ? 2 : 1
+                                ? AnyShapeStyle(primary.opacity(0.55))
+                                : AnyShapeStyle(Theme.Gradients.glassBorder)),
+                        lineWidth: (isSelected || isToday) ? 1.5 : 1.2
                     )
             )
         }
@@ -130,24 +142,35 @@ struct ChoreCalendarStrip: View {
     private func indicatorDot(count: Int, selected: Bool) -> some View {
         Group {
             if count > 0 {
-                if count == 1 {
+                if selected {
+                    // Filled orange circle with white number — matches
+                    // the selected-day badge in the reference.
+                    ZStack {
+                        Circle()
+                            .fill(primary)
+                            .frame(width: 18, height: 18)
+                        Text("\(count)")
+                            .font(.cozy(10, weight: .bold))
+                            .foregroundStyle(Color.white)
+                    }
+                } else if count == 1 {
                     Circle()
-                        .fill(accentGradient)
-                        .frame(width: 5, height: 5)
+                        .fill(secondary)
+                        .frame(width: 6, height: 6)
                 } else {
                     Text("\(count)")
-                        .font(.cozy(8, weight: .bold))
-                        .foregroundStyle(accentGradient)
-                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .font(.cozy(9, weight: .bold))
+                        .foregroundStyle(secondary)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
                         .background(
-                            Capsule().fill(accentGradient.opacity(0.18))
+                            Capsule().fill(secondary.opacity(0.18))
                         )
                 }
             } else {
-                Color.clear.frame(height: 10)
+                Color.clear.frame(height: 18)
             }
         }
-        .frame(height: 10)
+        .frame(height: 18)
     }
 
     // MARK: - Helpers

@@ -39,19 +39,7 @@ struct CozyTabBar: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Circle().fill(
-                            LinearGradient(
-                                colors: [
-                                    Theme.Palette.coral.opacity(0.62),
-                                    Theme.Palette.azure.opacity(0.62)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint:   .bottomTrailing
-                            )
-                        )
-                    )
+                    .fill(Theme.Palette.orange)
                     .overlay(
                         Circle()
                             .strokeBorder(
@@ -60,8 +48,8 @@ struct CozyTabBar: View {
                             )
                     )
                     .frame(width: 54, height: 54)
-                    .shadow(color: Color.black.opacity(0.08),
-                            radius: 5, x: 0, y: 3)
+                    .shadow(color: Theme.Palette.orange.opacity(0.35),
+                            radius: 8, x: 0, y: 4)
 
                 Image(systemName: "house.fill")
                     .font(.system(size: 22, weight: .bold))
@@ -85,7 +73,7 @@ struct CozyTabBar: View {
                 ZStack {
                     if selected == tab {
                         Circle()
-                            .fill(tab.tint.opacity(0.85))
+                            .fill(Theme.Palette.skyBlue)
                             .frame(width: 34, height: 34)
                             .matchedGeometryEffect(id: "bg", in: indicator)
                     }
@@ -94,7 +82,7 @@ struct CozyTabBar: View {
                                       weight: selected == tab ? .bold : .medium))
                         .foregroundStyle(
                             selected == tab
-                                ? Theme.Palette.text
+                                ? Color.white
                                 : Theme.Palette.text.opacity(0.55)
                         )
                 }
@@ -103,7 +91,7 @@ struct CozyTabBar: View {
                     .font(.cozy(10, weight: .semibold))
                     .foregroundStyle(
                         selected == tab
-                            ? Theme.Palette.text
+                            ? Theme.Palette.skyBlue
                             : Theme.Palette.textSoft
                     )
             }

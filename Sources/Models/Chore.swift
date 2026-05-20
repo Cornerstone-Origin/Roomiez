@@ -140,6 +140,11 @@ struct Chore: Identifiable, Codable, Hashable, Sendable {
     /// Last day the overdue-penalty deduction was applied for this chore.
     /// `nil` means the chore has never been penalized.
     var lastPenaltyAt: Date?
+    /// Identifier shared by all chores created together in a "group
+    /// chore" batch. `nil` means the chore is standalone. Used by the
+    /// edit sheet to surface peers and propagate group-level changes
+    /// (rotation / recurrence / due date) across the whole group.
+    var groupId: UUID?
 
     var isOverdue: Bool {
         guard status != .done, let due = dueDate else { return false }
@@ -165,6 +170,7 @@ struct Chore: Identifiable, Codable, Hashable, Sendable {
         case streak
         case createdAt     = "created_at"
         case lastPenaltyAt = "last_penalty_at"
+        case groupId       = "group_id"
     }
 }
 
