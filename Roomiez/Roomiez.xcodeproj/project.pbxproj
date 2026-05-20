@@ -10,6 +10,7 @@
 		02D1101B815DB66626E2E2A8 /* ChoreGroupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17953E6427A68DFC9908EDAE /* ChoreGroupService.swift */; };
 		127FCCE9C9FBE17E4EAEDC6D /* AnimatedFlame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE7E0EAF30BF320F3222642 /* AnimatedFlame.swift */; };
 		2C6D2EBC5877840CA4FB0BEE /* ChoreGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1236E993041386FD3DA7EE4B /* ChoreGroup.swift */; };
+		551F45309975CC5EBC10E5D0 /* ExpandedNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308B2535F800BE55BE4F0FF5 /* ExpandedNoteView.swift */; };
 		BE0981A12564B7BFB1D8C896 /* TimeOfDayBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E6EABBDA8D28B0B8D0D0C26 /* TimeOfDayBackdrop.swift */; };
 		EE090B752FBC54BD00B264C9 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE090B182FBC54BD00B264C9 /* AppState.swift */; };
 		EE090B762FBC54BD00B264C9 /* GroceryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE090B4F2FBC54BD00B264C9 /* GroceryViewModel.swift */; };
@@ -113,6 +114,7 @@
 /* Begin PBXFileReference section */
 		1236E993041386FD3DA7EE4B /* ChoreGroup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChoreGroup.swift; sourceTree = "<group>"; };
 		17953E6427A68DFC9908EDAE /* ChoreGroupService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChoreGroupService.swift; sourceTree = "<group>"; };
+		308B2535F800BE55BE4F0FF5 /* ExpandedNoteView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExpandedNoteView.swift; sourceTree = "<group>"; };
 		3E6EABBDA8D28B0B8D0D0C26 /* TimeOfDayBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeOfDayBackdrop.swift; sourceTree = "<group>"; };
 		4BE7E0EAF30BF320F3222642 /* AnimatedFlame.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnimatedFlame.swift; sourceTree = "<group>"; };
 		EE090AEE2FBC541400B264C9 /* Roomiez.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Roomiez.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -398,6 +400,7 @@
 				EE090B512FBC54BD00B264C9 /* NoteEditorSheet.swift */,
 				EE090B522FBC54BD00B264C9 /* NotesHubView.swift */,
 				EE090B532FBC54BD00B264C9 /* NotesViewModel.swift */,
+				308B2535F800BE55BE4F0FF5 /* ExpandedNoteView.swift */,
 			);
 			path = Notes;
 			sourceTree = "<group>";
@@ -734,6 +737,7 @@
 				02D1101B815DB66626E2E2A8 /* ChoreGroupService.swift in Sources */,
 				127FCCE9C9FBE17E4EAEDC6D /* AnimatedFlame.swift in Sources */,
 				BE0981A12564B7BFB1D8C896 /* TimeOfDayBackdrop.swift in Sources */,
+				551F45309975CC5EBC10E5D0 /* ExpandedNoteView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

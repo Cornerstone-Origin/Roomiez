@@ -14,9 +14,10 @@ TARGET_NAME  = "Roomiez"
 
 # (parent group name → list of filenames to ensure are present)
 ADDITIONS = {
-  "Models"     => ["ChoreGroup.swift"],
-  "Services"   => ["ChoreGroupService.swift"],
-  "Components" => ["AnimatedFlame.swift", "TimeOfDayBackdrop.swift"],
+  "Models"           => ["ChoreGroup.swift"],
+  "Services"         => ["ChoreGroupService.swift"],
+  "Components"       => ["AnimatedFlame.swift", "TimeOfDayBackdrop.swift"],
+  "Features/Notes"   => ["ExpandedNoteView.swift"],
 }
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
@@ -29,21 +30,28 @@ sources_group = project.root_object.main_group.children.find do |g|
 end
 abort("Couldn't find Sources group") unless sources_group
 
-ADDITIONS.each do |group_name, filenames|
-  group = sources_group.children.find do |g|
-    g.respond_to?(:path) && g.path == group_name
+# Walk a slash-separated path of group names down from `sources_group`.
+def find_group(root, path)
+  segments = path.split("/")
+  segments.reduce(root) do |g, seg|
+    return nil unless g
+    g.children.find { |c| c.respond_to?(:path) && c.path == seg }
   end
-  abort("Couldn't find Sources/#{group_name} group") unless group
+end
+
+ADDITIONS.each do |group_path, filenames|
+  group = find_group(sources_group, group_path)
+  abort("Couldn't find Sources/#{group_path} group") unless group
 
   filenames.each do |fname|
     if group.files.any? { |f| f.path == fname }
-      puts "  · #{group_name}/#{fname} already present — skipping"
+      puts "  · #{group_path}/#{fname} already present — skipping"
       next
     end
 
     file_ref = group.new_file(fname)
     target.add_file_references([file_ref])
-    puts "  + added #{group_name}/#{fname}"
+    puts "  + added #{group_path}/#{fname}"
   end
 end
 
