@@ -218,3 +218,105 @@ create policy "household_rw achievements" on achievements
     ) with check (
         household_id = (select household_id from users where users.id = auth.uid())
     );
+
+-- =========================================================================
+-- Chore groups — rotating "template" that auto-assigns a Chore each cycle.
+-- The group owns recurrence + rotation; each cycle materializes a row in
+-- the `chores` table tagged with `group_id` so the existing chore board,
+-- XP economy, overdue penalties, streaks, and activity feed all just work.
+-- =========================================================================
+create table if not exists chore_groups (
+    id               uuid primary key default uuid_generate_v4(),
+    household_id     uuid not null references households(id) on delete cascade,
+    title            text not null,
+    note             text,
+    icon             text not null default 'sparkles',
+    -- weekly | biweekly | monthly
+    frequency        text not null default 'weekly',
+    -- classic | shuffle | custom
+    rotation_style   text not null default 'classic',
+    xp_reward        int  not null default 10,
+    difficulty       text not null default 'normal',
+    priority         text not null default 'normal',
+    -- Round-robin pointer for classic/custom. Ignored by shuffle.
+    rotation_index   int  not null default 0,
+    -- Last cycle anchor we generated an assignment for. NULL = never.
+    last_assigned_at timestamptz,
+    -- Anchor (start) of the next cycle the scheduler should serve.
+    next_due_at      timestamptz not null,
+    is_paused        boolean not null default false,
+    paused_until     timestamptz,
+    created_by_id    uuid references users(id) on delete set null,
+    created_at       timestamptz not null default now()
+);
+
+create index if not exists chore_groups_household_idx on chore_groups (household_id);
+create index if not exists chore_groups_due_idx       on chore_groups (next_due_at)
+    where is_paused = false;
+
+-- =========================================================================
+-- Group membership — who rotates, and (for `custom`) in what order.
+-- `bag_picked` is the "shuffle bag" flag: everyone goes once before anyone
+-- repeats. Reset to false for all members when the bag empties.
+-- =========================================================================
+create table if not exists chore_group_members (
+    group_id    uuid not null references chore_groups(id) on delete cascade,
+    user_id     uuid not null references users(id) on delete cascade,
+    order_index int  not null default 0,
+    bag_picked  boolean not null default false,
+    added_at    timestamptz not null default now(),
+    primary key (group_id, user_id)
+);
+
+create index if not exists group_members_group_idx
+    on chore_group_members (group_id, order_index);
+
+-- =========================================================================
+-- Chores — back-pointer to the originating group + cycle bookkeeping.
+-- Additive only; existing single chores leave these NULL.
+-- =========================================================================
+alter table chores
+    add column if not exists group_id      uuid references chore_groups(id) on delete set null,
+    add column if not exists cycle_anchor  timestamptz,
+    add column if not exists auto_assigned boolean not null default false;
+
+create index if not exists chores_group_idx on chores (group_id, cycle_anchor);
+
+-- Idempotency guard for the rotation scheduler: prevents the app-launch
+-- sweep and any backstop (pg_cron, Edge Function) from double-inserting an
+-- assignment for the same group/cycle.
+create unique index if not exists chores_group_cycle_uq
+    on chores (group_id, cycle_anchor)
+    where group_id is not null;
+
+-- =========================================================================
+-- Realtime
+-- =========================================================================
+alter publication supabase_realtime add table chore_groups;
+alter publication supabase_realtime add table chore_group_members;
+
+-- =========================================================================
+-- RLS — same household-scoped pattern as the existing tables.
+-- =========================================================================
+alter table chore_groups        enable row level security;
+alter table chore_group_members enable row level security;
+
+create policy "household_rw chore_groups" on chore_groups
+    for all using (
+        household_id = (select household_id from users where users.id = auth.uid())
+    ) with check (
+        household_id = (select household_id from users where users.id = auth.uid())
+    );
+
+create policy "household_rw chore_group_members" on chore_group_members
+    for all using (
+        group_id in (
+            select id from chore_groups
+            where household_id = (select household_id from users where users.id = auth.uid())
+        )
+    ) with check (
+        group_id in (
+            select id from chore_groups
+            where household_id = (select household_id from users where users.id = auth.uid())
+        )
+    );

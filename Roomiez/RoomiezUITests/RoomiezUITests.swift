@@ -2,7 +2,7 @@
 //  RoomiezUITests.swift
 //  RoomiezUITests
 //
-//  Created by Marina Dela Rosa on 5/14/26.
+//  Created by Jordan Aviles on 5/19/26.
 //
 
 import XCTest
@@ -29,8 +29,6 @@ final class RoomiezUITests: XCTestCase {
         app.launch()
 
         // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
     }
 
     @MainActor

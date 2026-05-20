@@ -2,7 +2,7 @@
 //  RoomiezUITestsLaunchTests.swift
 //  RoomiezUITests
 //
-//  Created by Marina Dela Rosa on 5/14/26.
+//  Created by Jordan Aviles on 5/19/26.
 //
 
 import XCTest
@@ -24,8 +24,6 @@ final class RoomiezUITestsLaunchTests: XCTestCase {
 
         // Insert steps here to perform after app launch but before taking a screenshot,
         // such as logging into a test account or navigating somewhere in the app
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen"
