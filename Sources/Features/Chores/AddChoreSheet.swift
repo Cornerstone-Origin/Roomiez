@@ -39,8 +39,13 @@ struct AddChoreSheet: View {
     private let peers: [Chore]
     private let onSave: ([Chore]) -> Void
 
+    /// - Parameter defaultDueDate: When the sheet opens for a NEW chore
+    ///   (`initial == nil`), the Due Date field defaults to this day —
+    ///   typically whatever the chore board's calendar strip currently
+    ///   has selected. Ignored when editing an existing chore.
     init(initial: Chore?,
          peers: [Chore] = [],
+         defaultDueDate: Date? = nil,
          onSave: @escaping ([Chore]) -> Void) {
         self.initial = initial
         self.peers = peers
@@ -55,8 +60,25 @@ struct AddChoreSheet: View {
         let startDiff   = initial?.difficulty ?? .normal
         _difficulty     = State(initialValue: startDiff)
         _xpReward       = State(initialValue: Double(initial?.xpReward ?? startDiff.xp))
-        _dueDate        = State(initialValue: initial?.dueDate ?? .now)
-        _hasDueDate     = State(initialValue: initial?.dueDate != nil)
+        // New chore → honour the calendar's selected day (falls back to
+        // today's startOfDay if none supplied). Editing → keep the
+        // chore's own due. We normalise the initial value to startOfDay
+        // so the date-only picker doesn't carry over a stray time
+        // component from `.now`.
+        let rawDue = initial?.dueDate ?? defaultDueDate ?? .now
+        _dueDate        = State(initialValue: Calendar.current.startOfDay(for: rawDue))
+        // New chore inherits a due-date on by default whenever the
+        // caller passes a `defaultDueDate`, matching the user's intent
+        // of "this chore is for the day I picked on the calendar".
+        let resolvedHasDue: Bool = {
+            if initial != nil { return initial?.dueDate != nil }
+            return defaultDueDate != nil
+        }()
+        _hasDueDate     = State(initialValue: resolvedHasDue)
+        // Mirror onto the group-chore page so creating multiple chores
+        // in a batch also lands them on the selected day.
+        _groupStartDate    = State(initialValue: defaultDueDate ?? .now)
+        _groupHasStartDate = State(initialValue: true)
     }
 
     var body: some View {
@@ -598,8 +620,12 @@ struct AddChoreSheet: View {
                 Toggle("Has due date", isOn: $hasDueDate.animation(Theme.Motion.spring))
                     .tint(Theme.Palette.teal)
                 if hasDueDate {
+                    // Date only — leave the time unset so chores aren't
+                    // pinned to a specific hour-minute. (`Date` still
+                    // stores 00:00 internally; the picker just doesn't
+                    // surface a time wheel for the user to touch.)
                     DatePicker("", selection: $dueDate,
-                               displayedComponents: [.date, .hourAndMinute])
+                               displayedComponents: [.date])
                         .datePickerStyle(.compact)
                         .labelsHidden()
                 }

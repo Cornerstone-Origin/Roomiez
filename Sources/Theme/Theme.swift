@@ -32,6 +32,8 @@ enum Theme {
         static let rose        = Color(hex: "ED5565")   // Grapefruit red
         static let azure       = Color(hex: "5D9CEC")   // Blue Jeans
         static let grass       = Color(hex: "A0D468")   // Grass green
+        static let alizarin    = Color(hex: "E74C3C")   // Flat UI Alizarin — vivid red
+        static let emerald     = Color(hex: "2ECC71")   // Flat UI Emerald — vivid green
 
         // Premium chore-page palette — bright orange + sky blue.
         // Used by the chore-board accents (calendar selection, status

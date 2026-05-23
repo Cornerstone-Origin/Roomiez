@@ -48,7 +48,11 @@ struct ChoreBoardView: View {
         }
         .task { await vm.load() }
         .sheet(isPresented: $showingAdd) {
-            AddChoreSheet(initial: nil) { chores in
+            // Pre-seed the Due Date with whatever day the calendar
+            // strip currently has selected, so a chore added from a
+            // chosen day lands on that day by default.
+            AddChoreSheet(initial: nil,
+                          defaultDueDate: selectedDate) { chores in
                 Task {
                     for chore in chores { await vm.add(chore) }
                 }
@@ -144,6 +148,7 @@ struct ChoreBoardView: View {
     private func statusSegment(_ status: ChoreStatus) -> some View {
         let isSelected = selectedStatus == status
         let count = count(for: status)
+        let tint = statusFill(for: status)
         return Button {
             Haptics.selection()
             withAnimation(Theme.Motion.spring) { selectedStatus = status }
@@ -157,25 +162,25 @@ struct ChoreBoardView: View {
                 if count > 0 {
                     Text("\(count)")
                         .font(.cozy(11, weight: .bold))
-                        .foregroundStyle(isSelected ? .white : Theme.Palette.skyBlue)
+                        .foregroundStyle(isSelected ? .white : tint)
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(
                             Capsule().fill(
                                 isSelected
                                     ? Color.white.opacity(0.30)
-                                    : Theme.Palette.skyBlue.opacity(0.18)
+                                    : tint.opacity(0.18)
                             )
                         )
                 }
             }
-            .foregroundStyle(isSelected ? .white : Theme.Palette.skyBlue)
+            .foregroundStyle(isSelected ? .white : tint)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(
                 ZStack {
                     if isSelected {
                         Capsule()
-                            .fill(Theme.Palette.orange)
+                            .fill(tint)
                             .matchedGeometryEffect(id: "statusIndicator",
                                                    in: statusIndicator)
                     }
@@ -184,6 +189,16 @@ struct ChoreBoardView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Pill fill / accent per status — matches the swipe-pad colours
+    /// on each chore card so the status row reads as the same palette.
+    private func statusFill(for status: ChoreStatus) -> Color {
+        switch status {
+        case .todo:       return Theme.Palette.alizarin   // vivid red
+        case .inProgress: return Theme.Palette.marigold   // vivid yellow
+        case .done:       return Theme.Palette.emerald    // vivid green
+        }
     }
 
     private func count(for status: ChoreStatus) -> Int {
@@ -281,6 +296,10 @@ struct ChoreBoardView: View {
     /// Returns the chores due on the selected day (no recurrence
     /// projection). When viewing today, past-due unfinished chores
     /// also surface — the card stamps them as "Late".
+    ///
+    /// Done chores are bucketed by **completion date**, not due date —
+    /// otherwise a chore that was overdue from yesterday but finished
+    /// today would invisibly stay under yesterday's Done segment.
     private func chores(for status: ChoreStatus) -> [Chore] {
         let cal = Calendar.current
         let isToday = cal.isDateInToday(selectedDate)
@@ -293,9 +312,32 @@ struct ChoreBoardView: View {
             if let filter = selectedAssigneeId,
                chore.assigneeId != filter { return nil }
 
+            // Done segment — surface a completed chore on either the
+            // day it was finished OR the day it was originally due, so
+            // it's findable wherever the user looks. (Overdue chores
+            // finished today, and early completions, both surface on
+            // Today regardless of their stored `dueDate`.)
+            if status == .done {
+                if let completed = chore.completedAt,
+                   cal.isDate(completed, inSameDayAs: selectedDate) {
+                    return chore
+                }
+                if let due = chore.dueDate,
+                   cal.isDate(due, inSameDayAs: selectedDate) {
+                    return chore
+                }
+                // Stranded done chores with no dates at all → show on
+                // today as a fallback so they don't vanish entirely.
+                if chore.dueDate == nil && chore.completedAt == nil {
+                    return isToday ? chore : nil
+                }
+                return nil
+            }
+
+            // To Do / In Progress — group by due date.
             if let due = chore.dueDate {
                 if cal.isDate(due, inSameDayAs: selectedDate) { return chore }
-                if isToday, status != .done, due < todayStart { return chore }
+                if isToday, due < todayStart { return chore }
                 return nil
             }
             return isToday ? chore : nil

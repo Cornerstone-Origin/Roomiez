@@ -38,6 +38,44 @@ enum GroceryCategory: String, Codable, CaseIterable, Identifiable, Sendable {
         case .other:    Theme.Palette.sand
         }
     }
+
+    /// Quick-add suggestions per category — mirrors the chore-icon
+    /// preset pattern so users can tap a chip instead of typing a
+    /// title from scratch. Tweak this list to change the suggestions
+    /// surfaced in the grocery smart-input bar.
+    var presets: [String] {
+        switch self {
+        case .produce:
+            return ["Bananas", "Apples", "Avocados", "Tomatoes",
+                    "Spinach", "Onions", "Lettuce", "Garlic",
+                    "Lemons", "Berries", "Carrots", "Bell peppers"]
+        case .dairy:
+            return ["Milk", "Eggs", "Butter", "Yogurt",
+                    "Cheddar", "Cream cheese", "Oat milk",
+                    "Heavy cream", "Sour cream", "Parmesan"]
+        case .frozen:
+            return ["Ice cream", "Frozen pizza", "Frozen veggies",
+                    "Frozen berries", "Waffles", "Frozen dumplings",
+                    "Ice cubes", "Veggie burgers"]
+        case .pantry:
+            return ["Rice", "Pasta", "Bread", "Cereal",
+                    "Coffee", "Olive oil", "Sugar", "Flour",
+                    "Peanut butter", "Black beans", "Pasta sauce",
+                    "Tortillas", "Honey"]
+        case .snacks:
+            return ["Chips", "Crackers", "Popcorn", "Cookies",
+                    "Granola bars", "Chocolate", "Mixed nuts",
+                    "Pretzels", "Trail mix", "Dried fruit"]
+        case .cleaning:
+            return ["Paper towels", "Toilet paper", "Dish soap",
+                    "Laundry detergent", "Sponges", "Trash bags",
+                    "All-purpose cleaner", "Bleach", "Dryer sheets"]
+        case .other:
+            return ["Batteries", "Light bulbs", "Pet food",
+                    "Toothpaste", "Shampoo", "Hand soap",
+                    "Sunscreen", "Tissues"]
+        }
+    }
 }
 
 struct GroceryItem: Identifiable, Codable, Hashable, Sendable {

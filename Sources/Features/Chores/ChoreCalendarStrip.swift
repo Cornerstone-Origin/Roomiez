@@ -7,8 +7,8 @@ import SwiftUI
 struct ChoreCalendarStrip: View {
     @Binding var selectedDate: Date
     var chores: [Chore]
-    var pastDays:   Int = 7
-    var futureDays: Int = 90
+    var pastDays:   Int = 30
+    var futureDays: Int = 365
 
     private let cal = Calendar.current
 
@@ -135,8 +135,11 @@ struct ChoreCalendarStrip: View {
                     )
             )
         }
-        .buttonStyle(.plain)
-        .pressable(scale: 0.95)
+        // `ChoreCardPressStyle`-style press feedback: pure ButtonStyle
+        // so we don't install a competing DragGesture (which would
+        // block the parent horizontal ScrollView from scrolling
+        // through days — see the ChoreCard fix in CLAUDE.md).
+        .buttonStyle(DayPillPressStyle())
     }
 
     private func indicatorDot(count: Int, selected: Bool) -> some View {
@@ -195,4 +198,17 @@ struct ChoreCalendarStrip: View {
         return f.string(from: selectedDate)
     }
 
+}
+
+/// Press style for the calendar day pills — gives the scale-down
+/// feedback without the simultaneous drag-gesture that `.pressable`
+/// uses (which interferes with the parent horizontal ScrollView's
+/// drag-to-scroll). Mirrors the `ChoreCardPressStyle` pattern that
+/// solved the same problem for chore cards in the vertical ScrollView.
+private struct DayPillPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(Theme.Motion.snappy, value: configuration.isPressed)
+    }
 }

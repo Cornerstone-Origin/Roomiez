@@ -9,12 +9,21 @@ struct ChoreCard: View {
     @State private var showingStatusPicker = false
     @State private var completing = false
     @State private var dragOffset: CGFloat = 0
+    /// Set to `true` the moment the drag gesture actually moves the
+    /// card horizontally. Used to suppress the Button's tap action so
+    /// finishing a swipe doesn't also open the edit sheet.
+    @State private var didSwipe = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
         return ZStack {
             swipeBackground(shape: shape)
             Button {
+                // Suppress the tap if a swipe just finished — the
+                // gesture's `onEnded` may resolve right alongside the
+                // Button's tap action, so we'd otherwise pop the edit
+                // sheet every time the user slides the card.
+                guard !didSwipe, !completing else { return }
                 Haptics.tap()
                 onTap()
             } label: {
@@ -56,7 +65,6 @@ struct ChoreCard: View {
                                 StreakInline(streak: chore.streak)
                             }
                             Spacer()
-                            statusQuickPicker
                         }
                     }
                     .padding(12)
@@ -85,53 +93,108 @@ struct ChoreCard: View {
             .offset(x: dragOffset)
         }
         .simultaneousGesture(swipeGesture)
+        // The `completing` flag is the transient "I'm being marked
+        // done" state — it should not survive past the chore actually
+        // landing in `.done`. SwiftUI happily reuses the same card
+        // view across segment switches, so without this the giant
+        // checkmark overlay sticks around on every Done card the user
+        // finished via swipe.
+        .onChange(of: chore.status) { _, newStatus in
+            if newStatus != .todo { completing = false }
+        }
+    }
+
+    /// One swipe target — the destination status plus the colour /
+    /// glyph / label shown on the swipe pad while dragging.
+    private struct SwipeAction {
+        let status: ChoreStatus
+        let label: String
+        let icon: String
+        let tint: Color
+    }
+
+    /// Action revealed when the user drags **left → right** (positive
+    /// offset). Always the "more complete" of the two non-current
+    /// statuses — Done if available, otherwise In Progress.
+    private var rightSwipeAction: SwipeAction {
+        switch chore.status {
+        case .todo, .inProgress:
+            return SwipeAction(status: .done,
+                               label: "Done",
+                               icon: "checkmark.circle.fill",
+                               tint: Theme.Palette.emerald)
+        case .done:
+            return SwipeAction(status: .inProgress,
+                               label: "In Progress",
+                               icon: "timer",
+                               tint: Theme.Palette.marigold)
+        }
+    }
+
+    /// Action revealed when the user drags **right → left** (negative
+    /// offset). Always the "less complete" of the two non-current
+    /// statuses — To Do if available, otherwise In Progress.
+    private var leftSwipeAction: SwipeAction {
+        switch chore.status {
+        case .todo:
+            return SwipeAction(status: .inProgress,
+                               label: "In Progress",
+                               icon: "timer",
+                               tint: Theme.Palette.marigold)
+        case .inProgress, .done:
+            return SwipeAction(status: .todo,
+                               label: "To Do",
+                               icon: "circle",
+                               tint: Theme.Palette.alizarin)
+        }
     }
 
     /// Coloured pad that sits behind the card while the user drags.
-    /// Swipe right (left-to-right) reveals the sky-blue "Done" pad on
-    /// the leading edge. Swipe left (right-to-left) reveals the orange
-    /// "In Progress" pad on the trailing edge.
+    /// Right swipe reveals `rightSwipeAction` on the leading edge,
+    /// left swipe reveals `leftSwipeAction` on the trailing edge. The
+    /// action options depend on the chore's current status.
     @ViewBuilder
     private func swipeBackground(shape: RoundedRectangle) -> some View {
-        if chore.status == .todo {
-            if dragOffset > 0 {
-                ZStack(alignment: .leading) {
-                    shape.fill(Theme.Palette.skyBlue)
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 22, weight: .bold))
-                        Text("Done")
-                            .font(.cozy(14, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.leading, 22)
+        if dragOffset > 0 {
+            let action = rightSwipeAction
+            ZStack(alignment: .leading) {
+                shape.fill(action.tint)
+                HStack(spacing: 8) {
+                    Image(systemName: action.icon)
+                        .font(.system(size: 22, weight: .bold))
+                    Text(action.label)
+                        .font(.cozy(14, weight: .bold))
                 }
-                .transition(.opacity)
-            } else if dragOffset < 0 {
-                ZStack(alignment: .trailing) {
-                    shape.fill(Theme.Palette.orange)
-                    HStack(spacing: 8) {
-                        Text("In Progress")
-                            .font(.cozy(14, weight: .bold))
-                        Image(systemName: "timer")
-                            .font(.system(size: 22, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.trailing, 22)
-                }
-                .transition(.opacity)
+                .foregroundStyle(.white)
+                .padding(.leading, 22)
             }
+            .transition(.opacity)
+        } else if dragOffset < 0 {
+            let action = leftSwipeAction
+            ZStack(alignment: .trailing) {
+                shape.fill(action.tint)
+                HStack(spacing: 8) {
+                    Text(action.label)
+                        .font(.cozy(14, weight: .bold))
+                    Image(systemName: action.icon)
+                        .font(.system(size: 22, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.trailing, 22)
+            }
+            .transition(.opacity)
         }
     }
 
     /// Drag gesture wired as a `simultaneousGesture` so the parent
-    /// ScrollView still gets vertical drags. Only acts on To Do chores
-    /// and only when the drag is decidedly horizontal — vertical scroll
-    /// motions are ignored so the list stays scrollable.
+    /// ScrollView still gets vertical drags. Active for all statuses —
+    /// the swipe targets come from `rightSwipeAction` / `leftSwipeAction`
+    /// which depend on the chore's current status. Only horizontal
+    /// drags move the card; vertical motions fall through to scroll.
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 15)
             .onChanged { value in
-                guard chore.status == .todo, !completing else { return }
+                guard !completing else { return }
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > abs(dy) * 1.5 else { return }
@@ -140,91 +203,62 @@ struct ChoreCard: View {
                     ? min(dx, 160)
                     : max(dx, -160)
                 dragOffset = damped
+                // Mark this interaction as a swipe so the Button's
+                // tap action (fired alongside the gesture's onEnded)
+                // can short-circuit instead of opening the edit sheet.
+                didSwipe = true
             }
             .onEnded { value in
-                guard chore.status == .todo, !completing else {
+                let wasSwipe = didSwipe
+                guard !completing else {
                     withAnimation(Theme.Motion.spring) { dragOffset = 0 }
+                    if wasSwipe { resetSwipeFlag() }
                     return
                 }
                 let dx = value.translation.width
                 let threshold: CGFloat = 80
                 if dx > threshold {
-                    // Left → Right : mark Done (with completion animation).
-                    Haptics.success()
-                    withAnimation(Theme.Motion.bouncy) {
-                        completing = true
-                        dragOffset = 0
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                        onMove(.done)
-                    }
+                    commitSwipe(rightSwipeAction)
                 } else if dx < -threshold {
-                    // Right → Left : mark In Progress.
-                    Haptics.selection()
-                    withAnimation(Theme.Motion.spring) {
-                        dragOffset = 0
-                    }
-                    onMove(.inProgress)
+                    commitSwipe(leftSwipeAction)
                 } else {
                     withAnimation(Theme.Motion.spring) {
                         dragOffset = 0
                     }
                 }
+                if wasSwipe { resetSwipeFlag() }
             }
     }
 
-    /// Three small inline buttons — one per status — at the bottom
-    /// right of every chore card. Single tap switches the chore to
-    /// that status. The active status is filled with its accent
-    /// colour; the other two are outlined. Tapping "Done" triggers
-    /// the same completion animation as before.
-    private var statusQuickPicker: some View {
-        HStack(spacing: 6) {
-            ForEach(ChoreStatus.allCases) { s in
-                statusQuickButton(s)
-            }
+    /// Clear `didSwipe` after a short delay — long enough for the
+    /// Button's tap action (which fires roughly alongside the gesture's
+    /// `onEnded`) to read it, short enough that the next tap on the
+    /// same card behaves normally.
+    private func resetSwipeFlag() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            didSwipe = false
         }
     }
 
-    private func statusQuickButton(_ s: ChoreStatus) -> some View {
-        let isActive = chore.status == s
-        let accent = statusAccent(for: s)
-        return Button {
-            guard !isActive, !completing else { return }
-            if s == .done {
-                Haptics.success()
-                withAnimation(Theme.Motion.bouncy) { completing = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                    onMove(s)
-                }
-            } else {
-                Haptics.selection()
-                onMove(s)
+    /// Apply a committed swipe — runs the celebratory completion
+    /// animation when the destination is `.done`, otherwise just moves
+    /// the chore to the new status with a selection haptic.
+    private func commitSwipe(_ action: SwipeAction) {
+        if action.status == .done {
+            Haptics.success()
+            withAnimation(Theme.Motion.bouncy) {
+                completing = true
+                dragOffset = 0
             }
-        } label: {
-            Image(systemName: s.icon)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(isActive ? Color.white : accent)
-                .frame(width: 30, height: 30)
-                .background(
-                    Circle().fill(isActive ? accent : Theme.Palette.surface)
-                )
-                .overlay(
-                    Circle().stroke(
-                        isActive ? Color.clear : accent.opacity(0.55),
-                        lineWidth: 1.2
-                    )
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Move to \(s.title)")
-    }
-
-    private func statusAccent(for s: ChoreStatus) -> Color {
-        switch s {
-        case .todo:       return Theme.Palette.orange
-        case .inProgress: return Theme.Palette.skyBlue
-        case .done:       return Theme.Palette.skyBlue
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                onMove(.done)
+            }
+        } else {
+            Haptics.selection()
+            withAnimation(Theme.Motion.spring) {
+                dragOffset = 0
+            }
+            onMove(action.status)
         }
     }
 

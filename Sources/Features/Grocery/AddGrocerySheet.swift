@@ -92,6 +92,7 @@ struct AddGrocerySheet: View {
                 iconTint: category.tint,
                 font: .cozy(20, weight: .semibold)
             )
+            suggestionChips
             ModernInputField(
                 placeholder: "Brand (optional)",
                 text: $brand,
@@ -104,6 +105,69 @@ struct AddGrocerySheet: View {
             )
         }
         .animation(Theme.Motion.spring, value: category)
+    }
+
+    /// Horizontally scrolling preset suggestions for the currently
+    /// chosen category — sits right under the title field. Tap a chip
+    /// to pre-fill the title (so the user can still tweak brand /
+    /// quantity / category before saving). Mirrors the chore-icon
+    /// preset chip pattern in `AddChoreSheet`.
+    @ViewBuilder
+    private var suggestionChips: some View {
+        let suggestions = filteredSuggestions
+        if !suggestions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.self) { name in
+                        suggestionChip(name)
+                    }
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 2)
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func suggestionChip(_ name: String) -> some View {
+        let isPicked = title.localizedCaseInsensitiveCompare(name) == .orderedSame
+        let tint = category.tint
+        return Button {
+            Haptics.selection()
+            title = name
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: isPicked ? "checkmark" : "sparkles")
+                    .font(.system(size: 10, weight: .bold))
+                Text(name)
+                    .font(.cozy(12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isPicked ? .white : tint)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(
+                Capsule().fill(isPicked ? tint : tint.opacity(0.14))
+            )
+            .overlay(
+                Capsule().stroke(
+                    isPicked ? Color.clear : tint.opacity(0.45),
+                    lineWidth: 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Suggest \(name)")
+    }
+
+    /// Filter the chosen category's preset list down to titles that
+    /// match what the user is typing. Empty title → full list.
+    private var filteredSuggestions: [String] {
+        let query = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let all = category.presets
+        guard !query.isEmpty else { return all }
+        return all.filter {
+            $0.localizedCaseInsensitiveContains(query)
+        }
     }
 
     private func save() {

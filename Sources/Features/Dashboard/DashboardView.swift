@@ -381,11 +381,11 @@ struct DashboardView: View {
 
             highlightsCard
 
-            leaderboardCard
-
             if !vm.overdueChores.isEmpty {
                 overdueCard
             }
+
+            leaderboardCard
         }
     }
 
@@ -494,7 +494,7 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 4)
 
-            ListCard {
+            VStack(spacing: 10) {
                 ForEach(sorted) { user in
                     leaderboardRow(
                         member: user,
@@ -550,7 +550,7 @@ struct DashboardView: View {
                 .foregroundStyle(Theme.Palette.textSoft)
                 .padding(.horizontal, 4)
 
-            ListCard {
+            VStack(spacing: 10) {
                 ForEach(Array(vm.overdueChores.prefix(4))) { chore in
                     ListItemRow(
                         icon: chore.icon,
@@ -588,7 +588,7 @@ struct DashboardView: View {
                 trailingAction: { showingInvite = true }
             )
 
-            ListCard {
+            VStack(spacing: 10) {
                 ForEach(appState.members) { user in
                     roommateRow(user)
                 }
@@ -645,7 +645,7 @@ struct DashboardView: View {
                          title: "No rules yet",
                          subtitle: "House feels free for now.")
             } else {
-                ListCard {
+                VStack(spacing: 10) {
                     ForEach(Array(appState.household.rules.enumerated()), id: \.offset) { (index, rule) in
                         ruleRow(index: index, text: rule)
                     }
@@ -702,7 +702,7 @@ struct DashboardView: View {
                          title: "Quiet on the home front",
                          subtitle: "Activity will show up here.")
             } else {
-                ListCard {
+                VStack(spacing: 10) {
                     ForEach(Array(appState.recentActivity.prefix(5))) { event in
                         activityRow(event)
                     }
@@ -787,7 +787,7 @@ struct DashboardView: View {
 
     private func emptyRow(icon: String, tint: Color,
                           title: String, subtitle: String) -> some View {
-        ListCard {
+        VStack(spacing: 10) {
             ListItemRow(
                 icon: icon, tint: tint,
                 title: title, subtitle: subtitle,
