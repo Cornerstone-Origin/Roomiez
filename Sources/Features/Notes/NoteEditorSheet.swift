@@ -49,7 +49,7 @@ struct NoteEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .font(.cozy(15, weight: .bold))
+                        .font(.cozyActionStrong)
                         .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty &&
                                   bodyText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

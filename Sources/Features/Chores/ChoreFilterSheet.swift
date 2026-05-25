@@ -87,7 +87,7 @@ struct ChoreFilterSheet: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.cozy(14, weight: .bold))
+                    .font(.cozyChipStrong)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Capsule().fill(Theme.Palette.azure))
@@ -135,7 +135,7 @@ struct ChoreFilterSheet: View {
                           tint: Theme.Palette.azure,
                           size: .sm, style: .solid)
                 Text(title)
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                 Spacer()
                 trailingMark(isSelected: isSelected, tint: Theme.Palette.azure)
@@ -160,7 +160,7 @@ struct ChoreFilterSheet: View {
                 AvatarView(user: member, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isYou ? "You" : member.displayName)
-                        .font(.cozy(15, weight: .semibold))
+                        .font(.cozyAction)
                         .foregroundStyle(Theme.Palette.text)
                     Text(member.levelTitle)
                         .font(.cozyCaption)
@@ -267,7 +267,7 @@ struct ChoreFilterSheet: View {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 13, weight: .bold))
                 Text("Reset all filters")
-                    .font(.cozy(14, weight: .bold))
+                    .font(.cozyChipStrong)
             }
             .foregroundStyle(Theme.Palette.rose)
             .frame(maxWidth: .infinity)
@@ -301,7 +301,7 @@ struct ChoreFilterSheet: View {
                         .font(.system(size: 10, weight: .bold))
                 }
                 Text(title)
-                    .font(.cozy(13, weight: .semibold))
+                    .font(.cozyCaptionEmph)
                     .lineLimit(1)
             }
             .foregroundStyle(isSelected ? .white : Theme.Palette.text)

@@ -61,7 +61,7 @@ struct EditProfileSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .font(.cozy(15, weight: .bold))
+                        .font(.cozyActionStrong)
                         .disabled(displayName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -76,7 +76,7 @@ struct EditProfileSheet: View {
                 Circle().fill(Color(hex: accentHex))
                     .frame(width: 96, height: 96)
                 Text(initialsFromName)
-                    .font(.cozy(34, weight: .bold))
+                    .font(.cozyDisplay)
                     .foregroundStyle(.white)
             }
             Text(displayName.isEmpty ? "Your name" : displayName)
@@ -218,7 +218,7 @@ struct EditProfileSheet: View {
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.cozy(15, weight: .semibold))
+                        .font(.cozyAction)
                         .foregroundStyle(Theme.Palette.text)
                     Text(subtitle)
                         .font(.cozyTag)

@@ -46,7 +46,7 @@ struct ChoreCalendarStrip: View {
                     }
                 } label: {
                     Text("Today")
-                        .font(.cozy(12, weight: .bold))
+                        .font(.cozyBadge)
                         .foregroundStyle(Theme.Palette.skyBlue)
                         .padding(.horizontal, 12).padding(.vertical, 6)
                         .background(Capsule().fill(Theme.Palette.skyBlue.opacity(0.12)))
@@ -187,16 +187,27 @@ struct ChoreCalendarStrip: View {
     }
 
     private func weekdayLabel(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE"
-        return f.string(from: date).uppercased()
+        Self.weekdayFormatter.string(from: date).uppercased()
     }
 
     private var monthLabel: String {
+        Self.monthFormatter.string(from: selectedDate)
+    }
+
+    /// Cached at the type level so we don't spin up a fresh
+    /// `DateFormatter` (~3KB and locale-aware lookups) for every one
+    /// of ~395 day pills on each render of the calendar strip.
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
+
+    private static let monthFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "MMMM yyyy"
-        return f.string(from: selectedDate)
-    }
+        return f
+    }()
 
 }
 

@@ -27,7 +27,7 @@ struct QuickActionTile: View {
                           size: .md,
                           style: .solid)
                 Text(title)
-                    .font(.cozy(13, weight: .semibold))
+                    .font(.cozyCaptionEmph)
                     .foregroundStyle(Theme.Palette.text)
                     .multilineTextAlignment(.center)
             }
@@ -51,7 +51,7 @@ struct StreakChip: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Theme.Palette.orange)
             Text("\(streak)-day streak")
-                .font(.cozy(13, weight: .bold))
+                .font(.cozyCaptionStrong)
                 .foregroundStyle(Theme.Palette.text)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)

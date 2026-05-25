@@ -61,7 +61,7 @@ struct EditHouseholdSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .font(.cozy(15, weight: .bold))
+                        .font(.cozyActionStrong)
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -97,7 +97,7 @@ struct EditHouseholdSheet: View {
                 text: $name,
                 systemImage: "house.fill",
                 iconTint: Theme.Palette.coral,
-                font: .cozy(20, weight: .semibold)
+                font: .cozyHeadline
             )
         }
     }
@@ -147,7 +147,7 @@ struct EditHouseholdSheet: View {
     private func ruleRow(index: Int) -> some View {
         HStack(spacing: 10) {
             Text("\(index + 1)")
-                .font(.cozy(12, weight: .bold))
+                .font(.cozyBadge)
                 .foregroundStyle(.white)
                 .frame(width: 26, height: 26)
                 .background(Circle().fill(Theme.Palette.coral))
@@ -233,7 +233,7 @@ struct EditHouseholdSheet: View {
             AvatarView(user: user, size: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(isYou ? "\(user.displayName) (you)" : user.displayName)
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                 Text(user.displayTitle)
                     .font(.cozyTag)

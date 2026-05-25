@@ -25,33 +25,18 @@ struct GroceryListView: View {
 
                     if vm.items.isEmpty {
                         EmptyStateView(
-                            systemImage: "basket.fill",
+                            systemImage: "cart.fill",
                             tint: Theme.Palette.ochre,
-                            title: "No baskets yet",
-                            subtitle: "Type above to quick-add an item — it'll land in a basket.",
+                            title: "Nothing on the list yet",
+                            subtitle: "Type above to quick-add an item — it'll land in its category.",
                             actionTitle: "Add item"
                         ) { showingAdd = true }
                         .padding(.top, 40)
                     } else if basketsToShow.isEmpty {
                         emptyFilterState
                     } else {
-                        LazyVGrid(columns: basketColumns, spacing: 14) {
-                            ForEach(basketsToShow, id: \.0) { (category, items) in
-                                GroceryBasketCard(
-                                    category: category,
-                                    items: items,
-                                    onToggle: { item in
-                                        Task { await vm.toggle(item) }
-                                    },
-                                    onTapItem: { item in editing = item },
-                                    onRemove: { item in
-                                        Task { await vm.remove(item) }
-                                    }
-                                )
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                        }
-                        .animation(Theme.Motion.spring, value: vm.items)
+                        categoryRows
+                            .animation(Theme.Motion.spring, value: vm.items)
 
                         if vm.items.contains(where: \.isChecked) {
                             clearCheckedButton
@@ -64,8 +49,16 @@ struct GroceryListView: View {
             }
             .refreshable { await vm.load() }
 
-            FloatingAddButton { showingAdd = true }
-                .padding(.trailing, 20).padding(.bottom, FloatingButtonClearance.bottom)
+            // Solid orange to match the chore-page FAB so both
+            // primary add affordances read as the same control.
+            FloatingAddButton(
+                action: { showingAdd = true },
+                gradient: LinearGradient(
+                    colors: [Theme.Palette.orange, Theme.Palette.orange],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
+            .padding(.trailing, 20).padding(.bottom, FloatingButtonClearance.bottom)
         }
         .task { await vm.load() }
         .sheet(isPresented: $showingAdd) {
@@ -108,28 +101,28 @@ struct GroceryListView: View {
             if total > 0 {
                 HStack(spacing: 6) {
                     Text("\(vm.totalRemaining) to buy")
-                        .font(.cozy(13, weight: .semibold))
+                        .font(.cozyCaptionEmph)
                         .foregroundStyle(Theme.Palette.text)
                     if done > 0 {
                         Text("·").foregroundStyle(Theme.Palette.textSoft)
                         Text("\(done) done")
-                            .font(.cozy(13, weight: .semibold))
+                            .font(.cozyCaptionEmph)
                             .foregroundStyle(Theme.Palette.textSoft)
                     }
                     Spacer()
                 }
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.Palette.divider.opacity(0.6))
+                        Capsule().fill(Theme.Palette.hairline)
                         Capsule()
                             .fill(LinearGradient(
                                 colors: [Theme.Palette.coral, Theme.Palette.marigold],
                                 startPoint: .leading, endPoint: .trailing
                             ))
-                            .frame(width: max(6, proxy.size.width * progress))
+                            .frame(width: max(8, proxy.size.width * progress))
                     }
                 }
-                .frame(height: 6)
+                .frame(height: 10)
             }
         }
     }
@@ -142,7 +135,7 @@ struct GroceryListView: View {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Theme.Palette.text)
-                .frame(width: 32, height: 32)
+                .frame(width: 36, height: 36)
                 .background(Circle().fill(Theme.Palette.surface))
                 .overlay(Circle().stroke(Theme.Palette.divider, lineWidth: 1))
         }
@@ -157,7 +150,7 @@ struct GroceryListView: View {
             Image(systemName: hideChecked ? "eye.slash.fill" : "eye.fill")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(hideChecked ? .white : Theme.Palette.text)
-                .frame(width: 32, height: 32)
+                .frame(width: 36, height: 36)
                 .background(
                     Circle().fill(hideChecked
                                   ? Theme.Palette.text
@@ -245,12 +238,43 @@ struct GroceryListView: View {
         inputFocused = false
     }
 
-    // MARK: - Basket grid layout
+    // MARK: - Category-card layout
 
-    private let basketColumns: [GridItem] = [
-        GridItem(.flexible(), spacing: 14, alignment: .top),
-        GridItem(.flexible(), spacing: 14, alignment: .top)
-    ]
+    /// Cards laid out two-per-row with each row sized independently —
+    /// avoids `LazyVGrid`'s "all cells in a row stretch to the tallest
+    /// sibling" behaviour, which left big empty white blocks under
+    /// sparse categories like Snacks and Cleaning.
+    private var categoryRows: some View {
+        let rows = stride(from: 0, to: basketsToShow.count, by: 2).map {
+            Array(basketsToShow[$0..<min($0 + 2, basketsToShow.count)])
+        }
+        return VStack(spacing: 14) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(row, id: \.0) { (category, items) in
+                        GroceryCategoryCard(
+                            category: category,
+                            items: items,
+                            onToggle: { item in
+                                Task { await vm.toggle(item) }
+                            },
+                            onTapItem: { item in editing = item },
+                            onRemove: { item in
+                                Task { await vm.remove(item) }
+                            }
+                        )
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                    // Pad an odd-count last row so a lone card doesn't
+                    // stretch full-width.
+                    if row.count == 1 {
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+    }
 
     // MARK: - Bottom button / empty filter
 
@@ -271,6 +295,8 @@ struct GroceryListView: View {
                 )
         }
         .buttonStyle(.plain)
+        // Keep clear of the floating Add button on the trailing edge.
+        .padding(.trailing, 80)
     }
 
     private var emptyFilterState: some View {

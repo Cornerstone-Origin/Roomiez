@@ -55,7 +55,7 @@ struct AchievementsView: View {
                                     .enumerated()), id: \.element.id) { (i, user) in
                         HStack(spacing: 12) {
                             Text(rank(i))
-                                .font(.cozy(14, weight: .bold))
+                                .font(.cozyChipStrong)
                                 .foregroundStyle(Theme.Palette.text)
                                 .frame(width: 28)
                             AvatarView(user: user, size: 36)
@@ -69,7 +69,7 @@ struct AchievementsView: View {
                             }
                             Spacer()
                             Text("\(user.personalXP) XP")
-                                .font(.cozy(13, weight: .bold))
+                                .font(.cozyCaptionStrong)
                                 .foregroundStyle(Theme.Palette.text)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(Capsule().fill(Theme.Palette.surface))

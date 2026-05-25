@@ -125,4 +125,15 @@ final class DashboardViewModel: ObservableObject {
             tint: Theme.Palette.forest
         )
     }
+
+    /// Move a chore to the In Progress state — used by the Today
+    /// section's left-swipe gesture on the home page.
+    func moveToInProgress(_ chore: Chore) async {
+        var updated = chore
+        updated.status = .inProgress
+        _ = try? await appState.choreRepo.upsert(updated)
+        if let idx = chores.firstIndex(where: { $0.id == chore.id }) {
+            chores[idx] = updated
+        }
+    }
 }

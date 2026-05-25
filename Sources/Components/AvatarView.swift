@@ -72,7 +72,7 @@ struct AvatarStack: View {
                     Circle().fill(Theme.Palette.indigo.opacity(0.18))
                     Circle().stroke(Theme.Palette.background, lineWidth: 2)
                     Text("+\(users.count - 4)")
-                        .font(.cozy(11, weight: .bold))
+                        .font(.cozyTag)
                         .foregroundStyle(Theme.Palette.indigo)
                 }
                 .frame(width: size, height: size)

@@ -82,7 +82,7 @@ struct GroceryHistorySheet: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.cozy(14, weight: .bold))
+                    .font(.cozyChipStrong)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Capsule().fill(Theme.Palette.text))
@@ -122,7 +122,7 @@ struct GroceryHistorySheet: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.subject)
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                     .lineLimit(1)
                 HStack(spacing: 4) {

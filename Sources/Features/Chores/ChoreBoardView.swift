@@ -157,11 +157,11 @@ struct ChoreBoardView: View {
                 Image(systemName: status.icon)
                     .font(.system(size: 12, weight: .bold))
                 Text(status.shortTitle)
-                    .font(.cozy(13, weight: .semibold))
+                    .font(.cozyCaptionEmph)
                     .lineLimit(1)
                 if count > 0 {
                     Text("\(count)")
-                        .font(.cozy(11, weight: .bold))
+                        .font(.cozyTag)
                         .foregroundStyle(isSelected ? .white : tint)
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(
@@ -263,7 +263,7 @@ struct ChoreBoardView: View {
                         onMove: { newStatus in
                             Task { await vm.advance(chore, to: newStatus) }
                         },
-                        onTap: { editing = chore }
+                        onEdit: { editing = chore }
                     )
                     .contextMenu {
                         ForEach(ChoreStatus.allCases) { status in
@@ -345,22 +345,38 @@ struct ChoreBoardView: View {
         return matches.sorted(by: chosenSortComparator)
     }
 
+    /// Sort comparator with a stable tiebreaker on `chore.id`, so
+    /// equal-key items always land in the same order across renders
+    /// (rather than jittering whenever the underlying array reflows).
     private func chosenSortComparator(_ a: Chore, _ b: Chore) -> Bool {
         switch sortOrder {
         case .dueDate:
             switch (a.dueDate, b.dueDate) {
-            case let (l?, r?): return l < r
-            case (_?, nil):    return true
-            case (nil, _?):    return false
-            case (nil, nil):   return a.title < b.title
+            case let (l?, r?):
+                if l != r { return l < r }
+                return tiebreak(a, b)
+            case (_?, nil):  return true
+            case (nil, _?):  return false
+            case (nil, nil): return tiebreak(a, b)
             }
         case .priority:
-            return priorityRank(a.priority) > priorityRank(b.priority)
+            let pa = priorityRank(a.priority)
+            let pb = priorityRank(b.priority)
+            if pa != pb { return pa > pb }
+            return tiebreak(a, b)
         case .xp:
-            return a.xpReward > b.xpReward
+            if a.xpReward != b.xpReward { return a.xpReward > b.xpReward }
+            return tiebreak(a, b)
         case .title:
-            return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            let cmp = a.title.localizedCaseInsensitiveCompare(b.title)
+            if cmp != .orderedSame { return cmp == .orderedAscending }
+            return tiebreak(a, b)
         }
+    }
+
+    /// Stable tiebreaker — uuidString ordering is deterministic.
+    private func tiebreak(_ a: Chore, _ b: Chore) -> Bool {
+        a.id.uuidString < b.id.uuidString
     }
 
     private func priorityRank(_ p: ChorePriority) -> Int {
@@ -381,8 +397,8 @@ struct FloatingAddButton: View {
 
     static let defaultGradient: LinearGradient = LinearGradient(
         colors: [
-            Theme.Palette.coral.opacity(0.62),
-            Theme.Palette.azure.opacity(0.62)
+            Theme.Palette.coral.opacity(0.85),
+            Theme.Palette.azure.opacity(0.85)
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )

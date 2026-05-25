@@ -19,7 +19,7 @@ struct ListItemRow<Trailing: View>: View {
                           size: .sm, style: .solid)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.cozy(15, weight: .semibold))
+                        .font(.cozyAction)
                         .foregroundStyle(Theme.Palette.text)
                         .lineLimit(1)
                     if let subtitle, !subtitle.isEmpty {
@@ -40,12 +40,13 @@ struct ListItemRow<Trailing: View>: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
+                // Soft floating shadow on the white surface — replaces
+                // the glass-border treatment so the row reads as
+                // elevated rather than outlined.
                 RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
                     .fill(Theme.Palette.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                    .stroke(Theme.Palette.divider, lineWidth: 1)
+                    .shadow(color: Color.black.opacity(0.08),
+                            radius: 8, x: 0, y: 4)
             )
             .contentShape(Rectangle())
         }

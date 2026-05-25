@@ -76,7 +76,7 @@ struct AddGrocerySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(initial == nil ? "Add" : "Save", action: save)
-                        .font(.cozy(15, weight: .bold))
+                        .font(.cozyActionStrong)
                         .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -90,7 +90,7 @@ struct AddGrocerySheet: View {
                 text: $title,
                 systemImage: category.icon,
                 iconTint: category.tint,
-                font: .cozy(20, weight: .semibold)
+                font: .cozyHeadline
             )
             suggestionChips
             ModernInputField(
@@ -140,7 +140,7 @@ struct AddGrocerySheet: View {
                 Image(systemName: isPicked ? "checkmark" : "sparkles")
                     .font(.system(size: 10, weight: .bold))
                 Text(name)
-                    .font(.cozy(12, weight: .semibold))
+                    .font(.cozyBadgeSoft)
                     .lineLimit(1)
             }
             .foregroundStyle(isPicked ? .white : tint)

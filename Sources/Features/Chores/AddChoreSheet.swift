@@ -126,7 +126,7 @@ struct AddChoreSheet: View {
                     Button(confirmTitle) {
                         mode == .single ? save() : saveGroup()
                     }
-                    .font(.cozy(15, weight: .bold))
+                    .font(.cozyActionStrong)
                     .disabled(saveDisabled)
                 }
             }
@@ -208,7 +208,7 @@ struct AddChoreSheet: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text("Part of a \(peers.count + 1)-chore group")
-                    .font(.cozy(15, weight: .bold))
+                    .font(.cozyActionStrong)
                     .foregroundStyle(Theme.Palette.text)
                 Text("Changes to rotation, repeats, and due date apply to every chore in the group.")
                     .font(.cozyTag)
@@ -245,7 +245,7 @@ struct AddChoreSheet: View {
                             )
                         VStack(alignment: .leading, spacing: 1) {
                             Text(peer.title)
-                                .font(.cozy(14, weight: .semibold))
+                                .font(.cozyChip)
                                 .foregroundStyle(Theme.Palette.text)
                                 .lineLimit(1)
                             if let assignee = appState.member(id: peer.assigneeId) {
@@ -288,7 +288,7 @@ struct AddChoreSheet: View {
             text: $title,
             systemImage: icon,
             iconTint: ChoreIcon.tint(for: icon),
-            font: .cozy(20, weight: .semibold)
+            font: .cozyHeadline
         )
         .animation(Theme.Motion.spring, value: icon)
     }
@@ -324,7 +324,7 @@ struct AddChoreSheet: View {
             withAnimation(Theme.Motion.spring) { title = text }
         } label: {
             Text(text)
-                .font(.cozy(12, weight: .semibold))
+                .font(.cozyBadgeSoft)
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(
                     Capsule().fill(selected ? tint : tint.opacity(0.14))
@@ -347,7 +347,7 @@ struct AddChoreSheet: View {
                 Image(systemName: "pencil")
                     .font(.system(size: 11, weight: .semibold))
                 Text("Custom")
-                    .font(.cozy(12, weight: .semibold))
+                    .font(.cozyBadgeSoft)
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Capsule().fill(Theme.Palette.surface))
@@ -406,7 +406,7 @@ struct AddChoreSheet: View {
                         priority = p
                     } label: {
                         Text(p.label)
-                            .font(.cozy(13, weight: .semibold))
+                            .font(.cozyCaptionEmph)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(
                                 Capsule().fill(
@@ -504,13 +504,13 @@ struct AddChoreSheet: View {
     private func rotationRow(index: Int, member: RoomieUser) -> some View {
         HStack(spacing: 10) {
             Text("\(index + 1)")
-                .font(.cozy(12, weight: .bold))
+                .font(.cozyBadge)
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(Theme.Palette.indigo))
             AvatarView(user: member, size: 32, showsRing: false)
             Text(member.displayName)
-                .font(.cozy(14, weight: .semibold))
+                .font(.cozyChip)
                 .foregroundStyle(Theme.Palette.text)
             Spacer()
             reorderArrow(direction: .up, index: index)
@@ -563,7 +563,7 @@ struct AddChoreSheet: View {
                     Slider(value: $xpReward, in: 5...50, step: 1)
                         .tint(difficulty.tint)
                     Text("+\(Int(xpReward)) XP")
-                        .font(.cozy(13, weight: .bold))
+                        .font(.cozyCaptionStrong)
                         .frame(width: 64, alignment: .trailing)
                         .foregroundStyle(difficulty.tint)
                 }
@@ -593,7 +593,7 @@ struct AddChoreSheet: View {
                 Image(systemName: d.icon)
                     .font(.system(size: 13, weight: .bold))
                 Text(d.label)
-                    .font(.cozy(12, weight: .semibold))
+                    .font(.cozyBadgeSoft)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
@@ -713,7 +713,7 @@ struct AddChoreSheet: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text("Rotate together")
-                    .font(.cozy(15, weight: .bold))
+                    .font(.cozyActionStrong)
                     .foregroundStyle(Theme.Palette.text)
                 Text("Add a batch of chores. Each cycles through your rotation, staggered so different people start with different chores.")
                     .font(.cozyTag)
@@ -758,7 +758,7 @@ struct AddChoreSheet: View {
                             Image(systemName: "shuffle")
                                 .font(.system(size: 12, weight: .bold))
                             Text("Random order")
-                                .font(.cozy(13, weight: .semibold))
+                                .font(.cozyCaptionEmph)
                         }
                         .foregroundStyle(Theme.Palette.text)
                     }
@@ -795,13 +795,13 @@ struct AddChoreSheet: View {
     private func rotationOrderRow(index: Int, user: RoomieUser) -> some View {
         HStack(spacing: 10) {
             Text("\(index + 1)")
-                .font(.cozy(12, weight: .bold))
+                .font(.cozyBadge)
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(user.accent))
             AvatarView(user: user, size: 28, showsRing: false)
             Text(user.id == appState.currentUser.id ? "You" : user.displayName)
-                .font(.cozy(14, weight: .semibold))
+                .font(.cozyChip)
                 .foregroundStyle(Theme.Palette.text)
             Spacer()
             rotationReorderArrow(direction: .up, index: index)
@@ -926,7 +926,7 @@ struct AddChoreSheet: View {
                         Image(systemName: "plus.circle.fill")
                         Text("Add another chore")
                     }
-                    .font(.cozy(13, weight: .bold))
+                    .font(.cozyCaptionStrong)
                     .foregroundStyle(Theme.Palette.azure)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -986,7 +986,7 @@ struct AddChoreSheet: View {
                     }
 
                 Text("+\(draft.wrappedValue.difficulty.xp)")
-                    .font(.cozy(12, weight: .bold))
+                    .font(.cozyBadge)
                     .foregroundStyle(draft.wrappedValue.difficulty.tint)
                     .padding(.horizontal, 8).padding(.vertical, 5)
                     .background(Capsule().fill(

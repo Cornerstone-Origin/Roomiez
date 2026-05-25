@@ -12,7 +12,6 @@ struct DashboardView: View {
     @State private var showingLevels = false
     @State private var showingHistory = false
     /// Chore currently animating its completion in the Today list.
-    @State private var completingTodayId: UUID? = nil
 
     init(appState: AppState) {
         _vm = StateObject(wrappedValue: DashboardViewModel(appState: appState))
@@ -91,7 +90,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.text)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
+                    .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 1)).shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
             Button {
@@ -103,7 +102,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.text)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
+                    .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 1)).shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
         }
@@ -120,7 +119,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.text)
                 Spacer()
                 Text(todayDateLabel)
-                    .font(.cozyCaption)
+                    .font(.cozyCaptionEmph)
                     .foregroundStyle(Theme.Palette.textSoft)
             }
 
@@ -129,11 +128,17 @@ struct DashboardView: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(vm.todaysChoresForMe) { chore in
-                        todayRow(chore)
-                            .transition(.asymmetric(
-                                insertion: .scale.combined(with: .opacity),
-                                removal:   .move(edge: .leading).combined(with: .opacity)
-                            ))
+                        TodayChoreRow(
+                            chore: chore,
+                            onComplete: { Task { await vm.completeChore(chore) } },
+                            onMoveToInProgress: {
+                                Task { await vm.moveToInProgress(chore) }
+                            }
+                        )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal:   .move(edge: .leading).combined(with: .opacity)
+                        ))
                     }
                 }
                 .animation(Theme.Motion.spring, value: vm.todaysChoresForMe)
@@ -147,92 +152,6 @@ struct DashboardView: View {
         return f.string(from: .now)
     }
 
-    private func todayRow(_ chore: Chore) -> some View {
-        let isCompleting = completingTodayId == chore.id
-        return HStack(spacing: 12) {
-            Image(systemName: chore.icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(chore.iconTint)
-                .frame(width: 38, height: 38)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm,
-                                     style: .continuous)
-                        .fill(chore.iconTint.opacity(0.12))
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(chore.title)
-                    .font(.cozy(15, weight: .semibold))
-                    .foregroundStyle(Theme.Palette.text)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    if chore.isOverdue {
-                        Label("Late", systemImage: "exclamationmark.triangle.fill")
-                            .font(.cozyTag)
-                            .foregroundStyle(Theme.Palette.rose)
-                    } else if let due = chore.dueDate {
-                        Label(due.friendlyShort(), systemImage: "calendar")
-                            .font(.cozyTag)
-                            .foregroundStyle(Theme.Palette.textSoft)
-                    }
-                    Text("+\(chore.xpReward) XP")
-                        .font(.cozyTag)
-                        .foregroundStyle(Theme.Palette.textSoft)
-                }
-            }
-
-            Spacer()
-
-            Button {
-                guard !isCompleting else { return }
-                Haptics.success()
-                withAnimation(Theme.Motion.bouncy) {
-                    completingTodayId = chore.id
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                    Task {
-                        await vm.completeChore(chore)
-                        completingTodayId = nil
-                    }
-                }
-            } label: {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Theme.Palette.forest)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(
-                        Theme.Palette.forest.opacity(0.55), lineWidth: 1.5))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
-        )
-        .opacity(isCompleting ? 0.4 : 1)
-        .scaleEffect(isCompleting ? 0.94 : 1)
-        .overlay {
-            if isCompleting {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Theme.Palette.forest,
-                                     Theme.Palette.marigold],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-    }
 
     private var todayCaughtUp: some View {
         HStack(spacing: 12) {
@@ -247,7 +166,7 @@ struct DashboardView: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text("You're caught up")
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                 Text("Nothing due for you today. Take a victory lap.")
                     .font(.cozyTag)
@@ -262,10 +181,7 @@ struct DashboardView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
                 .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
     }
 
@@ -293,26 +209,26 @@ struct DashboardView: View {
             // Illustrated tier-house watermark on the right — sits
             // below the XP bar so it doesn't overlap.
             VStack {
-                Spacer().frame(height: 50)
+                Spacer().frame(height: 36)
                 HStack {
                     Spacer()
                     HouseTierImage(level: appState.household.level,
-                                   height: 110)
-                        .padding(.trailing, 8)
+                                   height: 92)
+                        .padding(.trailing, 12)
                 }
                 Spacer(minLength: 0)
             }
             .allowsHitTesting(false)
 
             // Foreground content
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
                     Button {
                         Haptics.selection()
                         showingLevels = true
                     } label: {
                         Text("Lv \(appState.household.level)")
-                            .font(.cozy(12, weight: .bold))
+                            .font(.cozyBadge)
                             .foregroundStyle(appState.household.tier.tint)
                             .padding(.horizontal, 10).padding(.vertical, 4)
                             .background(Capsule().fill(Color.white))
@@ -324,6 +240,13 @@ struct DashboardView: View {
                     .buttonStyle(.plain)
 
                     xpBar
+                    // Inline XP progress label so the bar actually
+                    // communicates a number, not just a sliver of
+                    // colour.
+                    Text("\(appState.household.houseXP % 250) / 250")
+                        .font(.cozyTag)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Palette.text.opacity(0.65))
                 }
 
                 Text(appState.household.levelTitle)
@@ -340,8 +263,8 @@ struct DashboardView: View {
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .frame(minHeight: 150)
+            .padding(14)
+            .frame(minHeight: 128)
         }
         .clipShape(shape)
         .overlay(
@@ -362,13 +285,13 @@ struct DashboardView: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.white.opacity(0.6))
-                    .overlay(Capsule().stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
+                    .overlay(Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1))
                 Capsule()
                     .fill(appState.household.tier.tint)
-                    .frame(width: max(6, proxy.size.width * progress))
+                    .frame(width: max(8, proxy.size.width * progress))
             }
         }
-        .frame(height: 8)
+        .frame(height: 10)
     }
 
     // MARK: - House pulse
@@ -384,8 +307,6 @@ struct DashboardView: View {
             if !vm.overdueChores.isEmpty {
                 overdueCard
             }
-
-            leaderboardCard
         }
     }
 
@@ -410,10 +331,18 @@ struct DashboardView: View {
                 icon: vm.overdueChores.isEmpty ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
                 tint: vm.overdueChores.isEmpty ? Theme.Palette.mint : Theme.Palette.rose,
                 title: vm.overdueChores.isEmpty ? "All caught up" : "Overdue",
-                value: vm.overdueChores.isEmpty ? "Nice." : "\(vm.overdueChores.count)",
+                // Use the first overdue chore's title as the "value"
+                // line so the chip has the same shape (name + status)
+                // as Top this week / Most consistent. The count is
+                // captured in the secondary detail line.
+                value: vm.overdueChores.isEmpty
+                    ? "Nice."
+                    : (vm.overdueChores.first?.title ?? "—"),
                 detail: vm.overdueChores.isEmpty
                     ? "Nothing past due"
-                    : "chore\(vm.overdueChores.count == 1 ? "" : "s")"
+                    : (vm.overdueChores.count > 1
+                        ? "+\(vm.overdueChores.count - 1) more"
+                        : "1 chore")
             )
         }
     }
@@ -435,7 +364,7 @@ struct DashboardView: View {
                     .minimumScaleFactor(0.7)
             }
             Text(value)
-                .font(.cozy(15, weight: .bold))
+                .font(.cozyActionStrong)
                 .foregroundStyle(Theme.Palette.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -473,80 +402,14 @@ struct DashboardView: View {
     }
 
     /// Bar-chart-style leaderboard for this week's completions.
-    private var leaderboardCard: some View {
-        let sorted = appState.members.sorted {
-            vm.completedThisWeek(by: $0.id) > vm.completedThisWeek(by: $1.id)
-        }
-        let maxCount = max(
-            sorted.map { vm.completedThisWeek(by: $0.id) }.max() ?? 1,
-            1
-        )
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("This week's leaderboard")
-                    .font(.cozy(13, weight: .bold))
-                    .foregroundStyle(Theme.Palette.textSoft)
-                Spacer()
-                Text("\(vm.totalCompletedThisWeek) total")
-                    .font(.cozyTag)
-                    .foregroundStyle(Theme.Palette.textSoft)
-            }
-            .padding(.horizontal, 4)
-
-            VStack(spacing: 10) {
-                ForEach(sorted) { user in
-                    leaderboardRow(
-                        member: user,
-                        count: vm.completedThisWeek(by: user.id),
-                        maxCount: maxCount
-                    )
-                }
-            }
-        }
-    }
-
-    private func leaderboardRow(member: RoomieUser, count: Int, maxCount: Int) -> some View {
-        let fraction = max(Double(count) / Double(maxCount), 0.04)
-        return HStack(spacing: 12) {
-            AvatarView(user: member, size: 32, showsRing: false)
-            Text(member.displayName)
-                .font(.cozy(14, weight: .semibold))
-                .foregroundStyle(Theme.Palette.text)
-                .frame(width: 70, alignment: .leading)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(member.accent.opacity(0.18))
-                    .frame(height: 8)
-                Capsule()
-                    .fill(member.accent)
-                    .frame(width: max(8, CGFloat(fraction) * 100),
-                           height: 8)
-            }
-            .frame(maxWidth: .infinity)
-            Text("\(count)")
-                .font(.cozy(14, weight: .bold))
-                .foregroundStyle(Theme.Palette.text)
-                .frame(width: 22, alignment: .trailing)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
-        )
-    }
+// Leaderboard merged into the Household section below — each
+    // roommate row now carries this week's completion bar inline.
 
     /// List of overdue chores — only rendered when at least one exists.
     private var overdueCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Needs attention")
-                .font(.cozy(13, weight: .bold))
+                .font(.cozyCaptionStrong)
                 .foregroundStyle(Theme.Palette.textSoft)
                 .padding(.horizontal, 4)
 
@@ -578,10 +441,19 @@ struct DashboardView: View {
 
     // MARK: - Roommates
 
+    /// Unified household roster — replaces the previous Roommates +
+    /// Leaderboard split. Each row carries the member's name, title,
+    /// level, streak, AND this week's completion bar. Sorted by
+    /// weekly count so the most active person sits at the top.
     private var roommatesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let counts = appState.members.map {
+            (user: $0, count: vm.completedThisWeek(by: $0.id))
+        }
+        let sorted = counts.sorted { $0.count > $1.count }
+        let maxCount = max(counts.map(\.count).max() ?? 1, 1)
+        return VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: "Roommates",
+                title: "Household",
                 systemImage: "person.2.fill",
                 tint: Theme.Palette.periwinkle,
                 trailingTitle: "Invite",
@@ -589,23 +461,46 @@ struct DashboardView: View {
             )
 
             VStack(spacing: 10) {
-                ForEach(appState.members) { user in
-                    roommateRow(user)
+                ForEach(sorted, id: \.user.id) { entry in
+                    roommateRow(entry.user,
+                                weeklyCount: entry.count,
+                                maxCount: maxCount)
                 }
             }
         }
     }
 
-    private func roommateRow(_ user: RoomieUser) -> some View {
-        HStack(spacing: 14) {
+    private func roommateRow(_ user: RoomieUser,
+                             weeklyCount: Int,
+                             maxCount: Int) -> some View {
+        let fraction = max(Double(weeklyCount) / Double(maxCount), 0.04)
+        return HStack(spacing: 14) {
             AvatarView(user: user, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(user.displayName)
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                 Text(user.levelTitle)
                     .font(.cozyCaption)
                     .foregroundStyle(Theme.Palette.textSoft)
+                // Inline weekly progress (replaces the standalone
+                // leaderboard card).
+                HStack(spacing: 8) {
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(user.accent.opacity(0.20))
+                            .frame(height: 5)
+                        Capsule()
+                            .fill(user.accent)
+                            .frame(width: max(6, CGFloat(fraction) * 100),
+                                   height: 5)
+                    }
+                    .frame(maxWidth: 100)
+                    Text("\(weeklyCount) this wk")
+                        .font(.cozyTag)
+                        .foregroundStyle(Theme.Palette.textSoft)
+                }
+                .padding(.top, 2)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
@@ -622,15 +517,15 @@ struct DashboardView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
                 .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
     }
 
     // MARK: - Rules
 
+    /// All house rules live in a single tile now — numbered rows
+    /// separated by hairline dividers. Same info, ~half the vertical
+    /// scroll, and the whole list reads as one container.
     private var rulesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -645,19 +540,35 @@ struct DashboardView: View {
                          title: "No rules yet",
                          subtitle: "House feels free for now.")
             } else {
-                VStack(spacing: 10) {
-                    ForEach(Array(appState.household.rules.enumerated()), id: \.offset) { (index, rule) in
-                        ruleRow(index: index, text: rule)
-                    }
+                rulesTile
+            }
+        }
+    }
+
+    private var rulesTile: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(appState.household.rules.enumerated()), id: \.offset) { (index, rule) in
+                ruleRow(index: index, text: rule)
+                if index < appState.household.rules.count - 1 {
+                    Divider()
+                        .background(Theme.Palette.hairline)
+                        // Align with the rule text so the divider
+                        // sits to the right of the numbered badge.
+                        .padding(.leading, 14 + 28 + 12)
                 }
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                .fill(Theme.Palette.surface)
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        )
     }
 
     private func ruleRow(index: Int, text: String) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text("\(index + 1)")
-                .font(.cozy(13, weight: .bold))
+                .font(.cozyCaptionStrong)
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
                 .background(
@@ -678,14 +589,8 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
-        )
+        // No per-row background — the parent `rulesTile` provides
+        // the shared white surface + shadow now.
     }
 
     // MARK: - Activity (updates)
@@ -727,7 +632,7 @@ struct DashboardView: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(activityHeadline(event))
-                    .font(.cozy(15, weight: .semibold))
+                    .font(.cozyAction)
                     .foregroundStyle(Theme.Palette.text)
                     .lineLimit(1)
                 Text(event.createdAt.relative())
@@ -745,10 +650,7 @@ struct DashboardView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
                 .fill(Theme.Palette.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                .stroke(Theme.Gradients.glassBorder, lineWidth: 1.2)
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
     }
 
@@ -793,6 +695,177 @@ struct DashboardView: View {
                 title: title, subtitle: subtitle,
                 showsChevron: false
             )
+        }
+    }
+}
+
+// MARK: - Today chore row
+
+/// One row in the home page's Today section. Mirrors `ChoreCard`'s
+/// swipe pattern but slimmed for a flat list row: right-swipe past
+/// the threshold marks the chore Done (with the same celebratory
+/// completion animation), left-swipe moves it to In Progress. The
+/// existing outlined check button on the trailing edge still works
+/// — it shares the same `triggerComplete` path as the right-swipe.
+private struct TodayChoreRow: View {
+    let chore: Chore
+    let onComplete: () -> Void
+    let onMoveToInProgress: () -> Void
+
+    @State private var completing = false
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                     style: .continuous)
+        return ZStack {
+            swipeBackground(shape: shape)
+            rowContent(shape: shape)
+                .offset(x: dragOffset)
+        }
+        .simultaneousGesture(swipeGesture)
+    }
+
+    // MARK: Swipe pad
+
+    @ViewBuilder
+    private func swipeBackground(shape: RoundedRectangle) -> some View {
+        if dragOffset > 0 {
+            ZStack(alignment: .leading) {
+                shape.fill(Theme.Palette.emerald)
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .bold))
+                    Text("Done").font(.cozyChipStrong)
+                }
+                .foregroundStyle(.white)
+                .padding(.leading, 18)
+            }
+            .transition(.opacity)
+        } else if dragOffset < 0 {
+            ZStack(alignment: .trailing) {
+                shape.fill(Theme.Palette.marigold)
+                HStack(spacing: 8) {
+                    Text("In Progress").font(.cozyChipStrong)
+                    Image(systemName: "timer")
+                        .font(.system(size: 20, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.trailing, 18)
+            }
+            .transition(.opacity)
+        }
+    }
+
+    // MARK: Row content
+
+    private func rowContent(shape: RoundedRectangle) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: chore.icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(chore.iconTint)
+                .frame(width: 38, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                     style: .continuous)
+                        .fill(chore.iconTint.opacity(0.12))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chore.title)
+                    .font(.cozyAction)
+                    .foregroundStyle(Theme.Palette.text)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if chore.isOverdue {
+                        Label("Late", systemImage: "exclamationmark.triangle.fill")
+                            .font(.cozyTag)
+                            .foregroundStyle(Theme.Palette.rose)
+                    } else if let due = chore.dueDate {
+                        Label(due.friendlyShort(), systemImage: "calendar")
+                            .font(.cozyTag)
+                            .foregroundStyle(Theme.Palette.textSoft)
+                    }
+                    XPBadge(amount: chore.xpReward)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(
+            shape
+                .fill(Theme.Palette.surface)
+                .shadow(color: Color.black.opacity(0.08),
+                        radius: 8, x: 0, y: 4)
+        )
+        .opacity(completing ? 0.4 : 1)
+        .scaleEffect(completing ? 0.94 : 1)
+        .overlay {
+            if completing {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Theme.Palette.emerald,
+                                     Theme.Palette.marigold],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+    }
+
+    // MARK: Gestures
+
+    /// Drag gesture wired as a `simultaneousGesture` so vertical
+    /// scrolls of the home page pass through. Same arbitration rule
+    /// as the chore-page cards: only horizontal motion claims the
+    /// gesture (`|dx| > |dy| * 1.5`).
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 15)
+            .onChanged { value in
+                guard !completing else { return }
+                let dx = value.translation.width
+                let dy = value.translation.height
+                guard abs(dx) > abs(dy) * 1.5 else { return }
+                let damped = dx.sign == .plus
+                    ? min(dx, 160)
+                    : max(dx, -160)
+                dragOffset = damped
+            }
+            .onEnded { value in
+                guard !completing else {
+                    withAnimation(Theme.Motion.spring) { dragOffset = 0 }
+                    return
+                }
+                let dx = value.translation.width
+                let threshold: CGFloat = 80
+                if dx > threshold {
+                    triggerComplete()
+                } else if dx < -threshold {
+                    Haptics.selection()
+                    withAnimation(Theme.Motion.spring) { dragOffset = 0 }
+                    onMoveToInProgress()
+                } else {
+                    withAnimation(Theme.Motion.spring) { dragOffset = 0 }
+                }
+            }
+    }
+
+    /// Shared by the right-swipe and the trailing check button so
+    /// both paths run the same haptic + animation + delayed action.
+    private func triggerComplete() {
+        guard !completing else { return }
+        Haptics.success()
+        withAnimation(Theme.Motion.bouncy) {
+            completing = true
+            dragOffset = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            onComplete()
         }
     }
 }

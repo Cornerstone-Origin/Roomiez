@@ -4,93 +4,22 @@ struct ChoreCard: View {
     var chore: Chore
     var assignee: RoomieUser?
     var onMove: (ChoreStatus) -> Void
-    var onTap: () -> Void
+    /// Called when the user taps the explicit edit button in the
+    /// bottom-right corner. The tile body itself is no longer a tap
+    /// target — only swipes (status change) and the edit button
+    /// produce action.
+    var onEdit: () -> Void
 
     @State private var showingStatusPicker = false
     @State private var completing = false
     @State private var dragOffset: CGFloat = 0
-    /// Set to `true` the moment the drag gesture actually moves the
-    /// card horizontally. Used to suppress the Button's tap action so
-    /// finishing a swipe doesn't also open the edit sheet.
-    @State private var didSwipe = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
         return ZStack {
             swipeBackground(shape: shape)
-            Button {
-                // Suppress the tap if a swipe just finished — the
-                // gesture's `onEnded` may resolve right alongside the
-                // Button's tap action, so we'd otherwise pop the edit
-                // sheet every time the user slides the card.
-                guard !didSwipe, !completing else { return }
-                Haptics.tap()
-                onTap()
-            } label: {
-                ZStack {
-                    shape.fill(Theme.Palette.surface)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: chore.icon)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(chore.iconTint)
-                                .frame(width: 38, height: 38)
-                                .background(
-                                    RoundedRectangle(cornerRadius: Theme.Radius.sm,
-                                                     style: .continuous)
-                                        .fill(chore.iconTint.opacity(0.12))
-                                )
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(chore.title)
-                                    .font(.cozyHeadline)
-                                    .foregroundStyle(Theme.Palette.text)
-                                    .lineLimit(2)
-                                if chore.isOverdue {
-                                    LatePill()
-                                }
-                            }
-                            Spacer()
-                            XPBadge(amount: chore.xpReward)
-                        }
-
-                        HStack(spacing: 10) {
-                            AvatarView(user: assignee, size: 26)
-                            if chore.isOverdue, let due = chore.dueDate {
-                                Label("Was due \(due.friendlyShort())",
-                                      systemImage: "calendar")
-                                    .font(.cozyCaption)
-                                    .foregroundStyle(Theme.Palette.orange)
-                            }
-                            if chore.streak > 1 {
-                                StreakInline(streak: chore.streak)
-                            }
-                            Spacer()
-                        }
-                    }
-                    .padding(12)
-                }
-                .overlay(shape.stroke(Theme.Gradients.glassBorder, lineWidth: 1.2))
-                .clipShape(shape)
-                .opacity(completing ? 0.4 : 1)
-                .scaleEffect(completing ? 0.94 : 1)
-                .overlay {
-                    if completing {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 64, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Theme.Palette.forest,
-                                             Theme.Palette.marigold],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-            }
-            .buttonStyle(ChoreCardPressStyle())
-            .offset(x: dragOffset)
+            cardContent(shape: shape)
+                .offset(x: dragOffset)
         }
         .simultaneousGesture(swipeGesture)
         // The `completing` flag is the transient "I'm being marked
@@ -102,6 +31,100 @@ struct ChoreCard: View {
         .onChange(of: chore.status) { _, newStatus in
             if newStatus != .todo { completing = false }
         }
+    }
+
+    /// The visible tile content — extracted out of the body so the
+    /// gesture / offset logic stays readable. No longer wrapped in a
+    /// Button: edits happen via the explicit pencil button below.
+    private func cardContent(shape: RoundedRectangle) -> some View {
+        ZStack {
+            // Soft floating shadow — matches the home-page tiles
+            // and replaces the older glass-border treatment for a
+            // unified app-wide tile language.
+            shape
+                .fill(Theme.Palette.surface)
+                .shadow(color: Color.black.opacity(0.08),
+                        radius: 8, x: 0, y: 4)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: chore.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(chore.iconTint)
+                        .frame(width: 38, height: 38)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.sm,
+                                             style: .continuous)
+                                .fill(chore.iconTint.opacity(0.12))
+                        )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(chore.title)
+                            .font(.cozyHeadline)
+                            .foregroundStyle(Theme.Palette.text)
+                            .lineLimit(2)
+                        if chore.isOverdue {
+                            LatePill()
+                        }
+                    }
+                    Spacer()
+                    XPBadge(amount: chore.xpReward)
+                }
+
+                HStack(spacing: 10) {
+                    AvatarView(user: assignee, size: 26)
+                    if chore.isOverdue, let due = chore.dueDate {
+                        Label("Was due \(due.friendlyShort())",
+                              systemImage: "calendar")
+                            .font(.cozyCaption)
+                            .foregroundStyle(Theme.Palette.orange)
+                    }
+                    if chore.streak > 1 {
+                        StreakInline(streak: chore.streak)
+                    }
+                    Spacer()
+                    editButton
+                }
+            }
+            .padding(12)
+        }
+        .clipShape(shape)
+        .opacity(completing ? 0.4 : 1)
+        .scaleEffect(completing ? 0.94 : 1)
+        .overlay {
+            if completing {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Theme.Palette.forest,
+                                     Theme.Palette.marigold],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+    }
+
+    /// Small circular pencil button anchored to the bottom-right of
+    /// each tile. The only path to the edit sheet — taps on the rest
+    /// of the tile do nothing.
+    private var editButton: some View {
+        Button {
+            Haptics.selection()
+            onEdit()
+        } label: {
+            Image(systemName: "pencil")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.Palette.textSoft)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Theme.Palette.subtle))
+                .overlay(
+                    Circle().stroke(Theme.Palette.hairline, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit chore")
     }
 
     /// One swipe target — the destination status plus the colour /
@@ -163,7 +186,7 @@ struct ChoreCard: View {
                     Image(systemName: action.icon)
                         .font(.system(size: 22, weight: .bold))
                     Text(action.label)
-                        .font(.cozy(14, weight: .bold))
+                        .font(.cozyChipStrong)
                 }
                 .foregroundStyle(.white)
                 .padding(.leading, 22)
@@ -175,7 +198,7 @@ struct ChoreCard: View {
                 shape.fill(action.tint)
                 HStack(spacing: 8) {
                     Text(action.label)
-                        .font(.cozy(14, weight: .bold))
+                        .font(.cozyChipStrong)
                     Image(systemName: action.icon)
                         .font(.system(size: 22, weight: .bold))
                 }
@@ -203,16 +226,10 @@ struct ChoreCard: View {
                     ? min(dx, 160)
                     : max(dx, -160)
                 dragOffset = damped
-                // Mark this interaction as a swipe so the Button's
-                // tap action (fired alongside the gesture's onEnded)
-                // can short-circuit instead of opening the edit sheet.
-                didSwipe = true
             }
             .onEnded { value in
-                let wasSwipe = didSwipe
                 guard !completing else {
                     withAnimation(Theme.Motion.spring) { dragOffset = 0 }
-                    if wasSwipe { resetSwipeFlag() }
                     return
                 }
                 let dx = value.translation.width
@@ -226,18 +243,7 @@ struct ChoreCard: View {
                         dragOffset = 0
                     }
                 }
-                if wasSwipe { resetSwipeFlag() }
             }
-    }
-
-    /// Clear `didSwipe` after a short delay — long enough for the
-    /// Button's tap action (which fires roughly alongside the gesture's
-    /// `onEnded`) to read it, short enough that the next tap on the
-    /// same card behaves normally.
-    private func resetSwipeFlag() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            didSwipe = false
-        }
     }
 
     /// Apply a committed swipe — runs the celebratory completion
@@ -277,7 +283,7 @@ struct ChoreCard: View {
                 Image(systemName: chore.status.icon)
                     .font(.system(size: 13, weight: .bold))
                 Text(chore.status.shortTitle)
-                    .font(.cozy(13, weight: .bold))
+                    .font(.cozyCaptionStrong)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .bold))
             }
@@ -322,7 +328,7 @@ struct ChoreCard: View {
                             .foregroundStyle(s.tint)
                             .frame(width: 18)
                         Text(s.title)
-                            .font(.cozy(14, weight: .semibold))
+                            .font(.cozyChip)
                             .foregroundStyle(Theme.Palette.text)
                         Spacer()
                         if s == chore.status {
@@ -417,7 +423,7 @@ struct XPBadge: View {
     var amount: Int
     var body: some View {
         Text("+\(amount) XP")
-            .font(.cozy(11, weight: .bold))
+            .font(.cozyTag)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10).padding(.vertical, 5)

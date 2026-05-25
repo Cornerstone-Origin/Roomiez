@@ -91,7 +91,7 @@ struct HouseHistorySheet: View {
                 } else {
                     HStack(spacing: 4) {
                         Text("Lv \(appState.household.level)")
-                            .font(.cozy(12, weight: .bold))
+                            .font(.cozyBadge)
                             .foregroundStyle(appState.household.tier.tint)
                             .padding(.horizontal, 8).padding(.vertical, 2)
                             .overlay(Capsule().stroke(
@@ -100,7 +100,7 @@ struct HouseHistorySheet: View {
                         Text("·")
                             .foregroundStyle(Theme.Palette.textSoft)
                         Text(netLabel(netDelta))
-                            .font(.cozy(12, weight: .bold))
+                            .font(.cozyBadge)
                             .foregroundStyle(netDelta >= 0
                                              ? Theme.Palette.forest
                                              : Theme.Palette.rose)
@@ -113,7 +113,7 @@ struct HouseHistorySheet: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.cozy(14, weight: .bold))
+                    .font(.cozyChipStrong)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Capsule().fill(Theme.Palette.text))
@@ -158,7 +158,7 @@ struct HouseHistorySheet: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(headline)
-                    .font(.cozy(14, weight: .semibold))
+                    .font(.cozyChip)
                     .foregroundStyle(Theme.Palette.text)
                     .lineLimit(2)
                 Text(event.createdAt.relative())
@@ -195,7 +195,7 @@ struct HouseHistorySheet: View {
         let color: Color = positive ? Theme.Palette.forest : Theme.Palette.rose
         let label = positive ? "+\(delta) XP" : "\(delta) XP"
         return Text(label)
-            .font(.cozy(11, weight: .bold))
+            .font(.cozyTag)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10).padding(.vertical, 5)

@@ -115,7 +115,7 @@ struct StatPill: View {
                     .font(.system(size: 10, weight: .bold))
             }
             Text(label)
-                .font(.cozy(11, weight: .bold))
+                .font(.cozyTag)
         }
         .padding(.horizontal, 9).padding(.vertical, 4)
         .foregroundStyle(tint)
